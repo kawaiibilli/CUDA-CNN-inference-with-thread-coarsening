@@ -51,7 +51,7 @@ __global__ void l1_conv2d(const float *ifm, float *ofm, float *mask, int in_h, i
 
 }
 
-__global__ void gen_conv2d(const float *ifm, float *ofm, float *mask, int in_h, int in_w, int in_n, int out_w, int out_m, int mask_size, int pad, int stride, int granularity)
+__global__ void gen_conv2d(const float *ifm, float *ofm, float *mask, int in_h, int in_w, int in_n, int out_w, int out_m, int mask_size, int pad, int stride, int granularity)  // num threads in a block would be (in_w,ceil(in_h/granularity))
 {
 
   int out_x = threadIdx.x;
@@ -94,7 +94,7 @@ __global__ void gen_conv2d(const float *ifm, float *ofm, float *mask, int in_h, 
     }
   }
 
-  __syncthreads();
+  __syncthreads(); // experiment with the syncthreads in the for loop
 
   for(int g=0;g<granularity;g++)
   {
