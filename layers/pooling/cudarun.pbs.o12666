@@ -1,0 +1,32 @@
+nvcc -I ./ pooling.cu host.cu -o helloCUDA
+./helloCUDA
+Copy input data from the host memory to the CUDA device
+CUDA kernel launch with 1 blocks of 1024 threads
+Copy output data from the CUDA device to the host memory
+0 : r = 0, c = 0, d = 0, ans = 13.000000
+1 : r = 0, c = 1, d = 0, ans = 15.000000
+2 : r = 1, c = 0, d = 0, ans = 23.000000
+3 : r = 1, c = 1, d = 0, ans = 25.000000
+4 : r = 0, c = 0, d = 1, ans = 38.000000
+5 : r = 0, c = 1, d = 1, ans = 40.000000
+6 : r = 1, c = 0, d = 1, ans = 48.000000
+7 : r = 1, c = 1, d = 1, ans = 50.000000
+8 : r = 0, c = 0, d = 2, ans = 63.000000
+9 : r = 0, c = 1, d = 2, ans = 65.000000
+10 : r = 1, c = 0, d = 2, ans = 73.000000
+11 : r = 1, c = 1, d = 2, ans = 75.000000
+Expected :
+ELEMENT : 13.000000
+ELEMENT : 15.000000
+ELEMENT : 23.000000
+ELEMENT : 25.000000
+ELEMENT : 38.000000
+ELEMENT : 40.000000
+ELEMENT : 48.000000
+ELEMENT : 50.000000
+ELEMENT : 63.000000
+ELEMENT : 65.000000
+ELEMENT : 73.000000
+ELEMENT : 75.000000
+Test PASSED
+Done
