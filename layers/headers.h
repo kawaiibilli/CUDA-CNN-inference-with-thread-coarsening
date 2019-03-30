@@ -3,6 +3,10 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-__global__ void l1_conv2d(const float *ifm, float *ofm, float *mask, int in_h, int in_w, int in_n, int out_w, int mask_size, int pad, int stride, int granularity);
+#define eps 1e-5
 
-__global__ void gen_conv2d(const float *ifm, float *ofm, float *mask, int in_h, int in_w, int in_n, int out_w, int out_m, int mask_size, int pad, int stride, int granularity);
+__global__ void conv1(const float *ifm, float *ofm, float *mask, int in_h, int in_w, int in_n, int out_h, int out_w, int out_m, int mask_size, int pad, int stride, int granularity);
+
+__global__ void conv2(const float *ifm, float *ofm, float *mask, int in_h, int in_w, int in_n, int out_h, int out_w, int out_m, int mask_size, int pad, int stride, int granularity);
+
+__global__ void val_checker(float* ifm, float* ofm, float *mask, int ifm_size, int ofm_size, int total_mask_size);
