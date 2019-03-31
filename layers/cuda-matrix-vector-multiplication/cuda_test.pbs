@@ -1,15 +1,17 @@
-
 #!/bin/sh
 # Torque script to submit CUDA C/C++ programs.
 
 # Torque directives
-#PBS -N helloCUDA
+#PBS -N matMult
 #PBS -W group_list=hp3
 #PBS -q gpu
 #PBS -l walltime=00:05:00,mem=400mb,nodes=compute-0-1:gpus=1
 #PBS -V
 
-cd cuda-matrix-vector-multiplication
+cd HPPP/CUDA_matrix_vector_multiplication
 # User Directives
+make clean
+make matMult
 make run
 #End of script
+
