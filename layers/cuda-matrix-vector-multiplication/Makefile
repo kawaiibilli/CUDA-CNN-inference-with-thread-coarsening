@@ -1,12 +1,13 @@
 
 NVCC = nvcc
 
-helloCUDA: gen_gpu.h gen_gpu.cu host.cu
-	$(NVCC) -I ./ gen_gpu.cu host.cu -o helloCUDA
+matMult: gen_gpu.h gen_gpu.cu host.cu
+	$(NVCC) -I ./ gen_gpu.cu host.cu -o matMult
 
 
 run:
-	./helloCUDA
+	./matMult
 
 clean:
-	rm -rf helloCUDA
+	rm -rf matMult
+

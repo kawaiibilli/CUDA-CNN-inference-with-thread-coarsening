@@ -10,5 +10,6 @@
 
 # User Directives
 cd cuda/term_project/
+make clean
 make run
 #End of script

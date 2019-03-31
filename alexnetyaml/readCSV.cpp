@@ -5,19 +5,17 @@
 #include <limits>
 #include <sstream>
 #include <algorithm>
+#include "headers.h"
 
 class FCLayer {
 public:
 	std::string name;
 	int inputs;
 	int outputs;
-	float** weights;
+	float* weights;	// dim - inputs x outputs 
 	float* biases;
 	FCLayer(std::string name, int inputs, int outputs) { 
-		weights = (float **)malloc(inputs * sizeof(float *)); 
-		for (int i1 = 0; i1 < inputs; i1++) {
-			weights[i1] = (float *)malloc(outputs * sizeof(float)); 
-		}
+		weights = (float *)malloc((inputs*outputs) * sizeof(float )); 
 		biases = (float *)malloc(outputs * sizeof(float));
 	}
 };
@@ -28,19 +26,10 @@ public:
 	int filter_size;
 	int num_layers; 
 	int depth;
-	float**** weights;
+	float* weights;	// dim - filter_size x filter_size x num_layers x depth
 	float* biases;
 	ConvLayer(std::string name, int filter_size, int num_layers, int depth) { 
-		weights = (float ****)malloc(filter_size * sizeof(float ***)); 
-		for (int i1 = 0; i1 < filter_size; i1++) {
-			weights[i1] = (float ***)malloc(filter_size * sizeof(float**)); 
-			for (int i2 = 0; i2 < filter_size; i2++) {
-				weights[i1][i2] = (float **)malloc(num_layers * sizeof(float*)); 
-				for (int i3 = 0; i3 < num_layers; i3++) {
-					weights[i1][i2][i3] = (float *)malloc(depth * sizeof(float));
-				}
-			}
-		}
+		weights = (float *)malloc((filter_size*filter_size*num_layers*depth) * sizeof(float)); 
 		biases = (float *)malloc(depth * sizeof(float));
 	}
 };
@@ -60,7 +49,7 @@ FCLayer processFC(std::stringstream& ss) {
 		for (int i2 = 0 ; i2 < outputs; i2++) {
 			getline( ss, substr, ',' );
 			float val = atof(substr.c_str());
-			f.weights[i1][i2] = val;
+			f.weights[i1*outputs + i2] = val;
 		}
 	}
 	for (int i1 = 0 ; i1 < outputs; i1++) {
@@ -91,7 +80,7 @@ ConvLayer processConv(std::stringstream& ss) {
 				for (int i4 = 0 ; i4 < depth; i4++) {
 					getline( ss, substr, ',' );
 					float val = atof(substr.c_str());
-					c.weights[i1][i2][i3][i4] = val;
+					c.weights[i1*(filter_size*num_layers*depth) + i2*(num_layers*depth) + i3*depth + i4] = val;
 				}
 			}
 		}

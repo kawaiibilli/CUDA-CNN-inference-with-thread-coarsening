@@ -2,18 +2,20 @@
 /**
  * Host main routine
  */
-
-//In this, device input vector for pooling layer will be same as device output vector(flattened) of conv layer. 
-//So many changes are required in this host code, this is just for verification. 
-//Code verification result : OK!
 int main(void)
 {
+    cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	float delta = 0.0; //to measure time
+
     // Error code to check return values for CUDA calls
     cudaError_t err = cudaSuccess;
 
     // Print the vector length to be used, and compute its size
-    int inp_r=5,  inp_c=5,  depth=3,  filter_width=3,  stride=2,  out_r=2,  out_c=2,  granularity=1;
+    int inp_r=55,  inp_c=55,  depth=96,  filter_width=3,  stride=2,  out_r=27,  out_c=27,  granularity=10;
     int numElements = inp_r*inp_c*depth;
+    //Automate calculations of out layer params
     int numElements_out = out_r*out_c*depth;
     size_t size = numElements * sizeof(float);
     size_t size_out = numElements_out * sizeof(float);
@@ -66,18 +68,49 @@ int main(void)
         exit(EXIT_FAILURE);
     }
 
-    // Launch the Vector Add CUDA Kernel
-    int threadsPerBlock = 1024;
-    int blocksPerGrid =(numElements_out + granularity*threadsPerBlock - 1) / (granularity*threadsPerBlock);
-    printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
-    gran_pooling<<<blocksPerGrid, threadsPerBlock>>>(d_inp, d_out, inp_r, inp_c, depth, filter_width, stride, out_r, out_c, granularity);
-    err = cudaGetLastError();
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to launch vectorAdd kernel (error code %s)!\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
+    // Launch the CUDA Kernel
+    //Method 1
+    printf("\n*****************METHOD 1 (w/o shared mem)*********************\n\n");
+    for(granularity=1;granularity<33;granularity++) {
+        int threadsPerBlock = 1024;
+        int blocksPerGrid =(numElements_out + granularity*threadsPerBlock - 1) / (granularity*threadsPerBlock);
+        printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
+        cudaEventRecord(start);
+        gran_pooling<<<blocksPerGrid, threadsPerBlock>>>(d_inp, d_out, inp_r, inp_c, depth, filter_width, stride, out_r, out_c, granularity);
+        err = cudaGetLastError();
+        if (err != cudaSuccess)
+        {
+            fprintf(stderr, "Failed to launch vectorAdd kernel (error code %s)!\n", cudaGetErrorString(err));
+            exit(EXIT_FAILURE);
+        }
+        cudaEventRecord(stop);
+        cudaEventSynchronize(stop);
+	    //delta = 0;
+	    cudaEventElapsedTime(&delta, start, stop);
+	    printf("granularity = %d, time in milliseconds = %f\n\n", granularity, delta);
+	}
+	
+	
+	//Method 2
+	printf("\n*****************METHOD 2 (w/ shared mem)*********************\n\n");
+	for(granularity=1;granularity<33;granularity++) {
+	    int threadsPerBlock = (out_r*out_c - 1)/granularity + 1;
+        int blocksPerGrid = depth;
+        printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
+        cudaEventRecord(start);
+        shared_pool<<<blocksPerGrid, threadsPerBlock>>>(d_inp, d_out, inp_r, inp_c, depth, filter_width, stride, out_r, out_c, granularity);
+        err = cudaGetLastError();
+        if (err != cudaSuccess)
+        {
+            fprintf(stderr, "Failed to launch vectorAdd kernel (error code %s)!\n", cudaGetErrorString(err));
+            exit(EXIT_FAILURE);
+        }
+        cudaEventRecord(stop);
+        cudaEventSynchronize(stop);
+	    //delta = 0;
+	    cudaEventElapsedTime(&delta, start, stop);
+	    printf("granularity = %d, time in milliseconds = %f\n\n", granularity, delta);
+	}
 
     // Copy the device result vector in device memory to the host result vector
     // in host memory.
@@ -93,7 +126,7 @@ int main(void)
     // Verify that the result vector is correct
     for (int i = 0; i < numElements_out; ++i)
     {
-        printf("ELEMENT : %f\n", h_out[i]);
+        //printf("ELEMENT : %f\n", h_out[i]);
     }
 
     printf("Test PASSED\n");
