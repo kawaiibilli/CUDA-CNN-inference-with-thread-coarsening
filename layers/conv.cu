@@ -6,10 +6,16 @@ __device__ float get_ifm_idx(const float* ifm,int k,int i,int j,int in_h,int in_
   {
     return 0;
   }
-
   return ifm[k*in_h*in_w + i*in_w + j];
 }
-
+__device__ float get_ifm_plane_idx(float* ifm_plane, int i, int j, int in_h, int in_w)
+{
+  if(i<0 || i>=in_h || j<0 || j>=in_w)
+  {
+    return 0;
+  }
+  return ifm_plane[i*in_w + j];
+}
 
 __global__ void conv1(const float *ifm, float *ofm, float *mask, int in_h, int in_w, int in_n, int out_h, int out_w, int out_m, int mask_size, int pad, int stride, int granularity)
 {
@@ -63,10 +69,28 @@ __global__ void conv1(const float *ifm, float *ofm, float *mask, int in_h, int i
   }
 }
 
+__device__ void load_shared_plane(const float *ifm, float *ifm_plane, int k, int in_n, int in_h, int in_w)
+{
+  int block_tid = blockDim.x * threadIdx.y + threadIdx.x;
+  int total_threads = (blockDim.x * blockDim.y);
+  int total_plane_elements = in_h*in_w;
+  int elements_per_thread = (total_plane_elements + total_threads - 1)/total_threads;
+  int ifm_offset = k*in_n*in_h;
+  int curr_ele;
+
+  for(int it = 0; it < elements_per_thread; it++)
+  {
+    curr_ele = block_tid + (it*total_threads);
+    if(curr_ele >= total_plane_elements)
+    {
+      break;
+    }
+    ifm_plane[curr_ele] = ifm[ifm_offset + curr_ele];
+  }
+}
 
 __global__ void conv2(const float *ifm, float *ofm, float *mask, int in_h, int in_w, int in_n, int out_h, int out_w, int out_m, int mask_size, int pad, int stride, int granularity)  // num threads in a block would be (in_w,ceil(in_h/granularity))
 {
-
   int zflag = 0;
 
   int out_x = threadIdx.x;
@@ -81,8 +105,9 @@ __global__ void conv2(const float *ifm, float *ofm, float *mask, int in_h, int i
   }
 
   // float* local_mat = (float *)malloc(granularity*in_n*mask_size*mask_size * sizeof(float));
-  float local_mask[2500];
-  // __shared__ float shared_mask[2500];
+  // float local_mask[2500];
+  __shared__ float shared_mask[2500];
+  __shared__ float ifm_plane[3100];
   // if(threadIdx.x ==0 && threadIdx.y ==0)
   //   shared_mask = (float *)malloc(in_n*mask_size*mask_size * sizeof(float));
   // __syncthreads();
@@ -93,42 +118,40 @@ __global__ void conv2(const float *ifm, float *ofm, float *mask, int in_h, int i
     output[g] = 0.0;
   }
 
-  // loading the local mask
-  for(int k=0;k<in_n;k++)
-  {
-    for(int i=0;i<mask_size;i++)
-    {
-      for(int j=0;j<mask_size;j++)
-      {
-        local_mask[k*mask_size*mask_size + i*mask_size + j] = mask[out_z*in_n*mask_size*mask_size + k*mask_size*mask_size + i*mask_size +j];
-      }
-    }
-  }
+  // // loading the local mask
+  // for(int k=0;k<in_n;k++)
+  // {
+  //   for(int i=0;i<mask_size;i++)
+  //   {
+  //     for(int j=0;j<mask_size;j++)
+  //     {
+  //       local_mask[k*mask_size*mask_size + i*mask_size + j] = mask[out_z*in_n*mask_size*mask_size + k*mask_size*mask_size + i*mask_size +j];
+  //     }
+  //   }
+  // }
 
   // loading the shared mask
   int total_mask_elements = mask_size*mask_size*in_n;
   int total_threads = (blockDim.x * blockDim.y);
   int elements_per_thread = (total_mask_elements + total_threads - 1)/total_threads;
-  // int block_tid = blockDim.x * threadIdx.y + threadIdx.x;
-  // int mask_offset = out_z*total_mask_elements;
-  // int mask_layer_size = mask_size*mask_size;
-  // int curr_ele;
+  int block_tid = blockDim.x * threadIdx.y + threadIdx.x;
+  int mask_offset = out_z*total_mask_elements;
+  int mask_layer_size = mask_size*mask_size;
+  int curr_ele;
   // // printf("blockDim.x = %d, blockDim.y = %d, threadIdx.x = %d, threadIdx.y = %d, total_mask_elements = %d, total_threads = %d, block_tid = %d, mask_offset = %d, mask_layer_size = %d, elements_per_thread = %d\n",blockDim.x,blockDim.y,threadIdx.x, threadIdx.y, total_mask_elements,total_threads,block_tid,mask_offset,mask_layer_size,elements_per_thread);
 
-  // for(int it=0; it<elements_per_thread; it++)
-  // {
-  //   curr_ele = block_tid + (it*total_threads);
-  //   if(curr_ele >= total_mask_elements)
-  //   {
-  //     break;
-  //   }
-  //   shared_mask[curr_ele] = mask[mask_offset + curr_ele];
-  //   // printf("succes for block_tid = %d, it = %d\n",block_tid,it );
-  //   // __syncthreads(); //experiment later
-
-  // }
-  // __syncthreads(); // experiment with the syncthreads in the for loop
-
+  for(int it=0; it<elements_per_thread; it++)
+  {
+    curr_ele = block_tid + (it*total_threads);
+    if(curr_ele >= total_mask_elements)
+    {
+      break;
+    }
+    shared_mask[curr_ele] = mask[mask_offset + curr_ele];
+    // printf("succes for block_tid = %d, it = %d\n",block_tid,it );
+    // __syncthreads(); //experiment later
+  }
+  __syncthreads(); // experiment with the syncthreads in the for loop
 
 
   // loading the local ifm
@@ -147,26 +170,45 @@ __global__ void conv2(const float *ifm, float *ofm, float *mask, int in_h, int i
   // }
   
   // //computing output values
-  for(int g=0; g<granularity; g++)
+  // for(int g=0; g<granularity; g++)
+  // {
+  //   for(int k=0; k<in_n; k++)
+  //   {
+  //     for(int i=0; i<mask_size; i++)
+  //     {
+  //       for(int j=0; j<mask_size; j++)
+  //       {
+  //         // output[g] += (mask[out_z*in_n*mask_size*mask_size + k*mask_layer_size + i*mask_size + j] * get_ifm_idx(ifm, k, (in_y + g*stride - i), (in_x - j), in_h, in_w));
+  //         // output[g] +=  get_ifm_idx(ifm, k, (in_y + g*stride - i), (in_x - j), in_h, in_w) * local_mask[k*mask_size*mask_size + i*mask_size + j];
+  //         output[g] +=  get_ifm_idx(ifm, k, (in_y + g*stride - i), (in_x - j), in_h, in_w) * shared_mask[k*mask_size*mask_size + i*mask_size + j];
+  //         // if(get_ifm_idx(ifm, k, (in_y + g*stride - i), (in_x - j), in_h, in_w)> eps)
+  //         // {
+  //         //   zflag = 1;, 
+  //         // }
+  //       }
+  //     }
+  //   }
+  // }
+
+  //computing output values by accumulating
+  for(int k=0; k<in_n; k++)
   {
-    for(int k=0; k<in_n; k++)
+    load_shared_plane(ifm, ifm_plane, k, in_n, in_h, in_w);
+    __syncthreads();
+    for(int g=0; g<granularity; g++)
     {
-      for(int i=0; i<mask_size; i++)
+      for(int i=0;i<mask_size;i++)
       {
-        for(int j=0; j<mask_size; j++)
+        for(int j=0;j<mask_size;j++)
         {
-          // output[g] += (mask[out_z*in_n*mask_size*mask_size + k*mask_layer_size + i*mask_size + j] * get_ifm_idx(ifm, k, (in_y + g*stride - i), (in_x - j), in_h, in_w));
-          output[g] +=  get_ifm_idx(ifm, k, (in_y + g*stride - i), (in_x - j), in_h, in_w) * local_mask[k*mask_size*mask_size + i*mask_size + j];
-          // output[g] +=  get_ifm_idx(ifm, k, (in_y + g*stride - i), (in_x - j), in_h, in_w) * shared_mask[k*mask_size*mask_size + i*mask_size + j];
-          
-          // if(get_ifm_idx(ifm, k, (in_y + g*stride - i), (in_x - j), in_h, in_w)> eps)
-          // {
-          //   zflag = 1;
-          // }
+          // output[g] +=  get_ifm_plane_idx(ifm_plane, (in_y + g*stride - i), (in_x - j), in_h, in_w) * local_mask[k*mask_size*mask_size + i*mask_size + j];
+          output[g] +=  get_ifm_plane_idx(ifm_plane, (in_y + g*stride - i), (in_x - j), in_h, in_w) * shared_mask[k*mask_size*mask_size + i*mask_size + j];
         }
       }
     }
   }
+
+
   // if(zflag==0)
   // {
   //   printf("all ifm window zero in block_tid\n");
