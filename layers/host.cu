@@ -107,20 +107,55 @@ int main(void)
     dim3 blocksPerGrid(num_out_fm,1,1);
     dim3 threadsPerBlock(out_fm_w, ((out_fm_h + granularity - 1)/granularity) , 1);
 	
-    for(int g=1;g<=16;g++)
+
+	// // for conv2
+ //    for(int g=1;g<=16;g++)
+ //    {
+ //    	blocksPerGrid.x = 1;
+ //    	blocksPerGrid.y = 1;
+ //    	blocksPerGrid.z =  num_out_fm;
+
+ //    	threadsPerBlock.x = out_fm_w;
+ //    	threadsPerBlock.y = ((out_fm_h + g - 1)/g);
+ //    	threadsPerBlock.z = 1;
+
+	// 	printf("threadsPerBlock = %d,%d,%d\n",threadsPerBlock.x,threadsPerBlock.y,threadsPerBlock.z);
+	// 	cudaEventRecord(start);
+
+	//     conv2<<<blocksPerGrid, threadsPerBlock>>>(d_ifm, d_ofm, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, g);
+	    
+	//     cudaEventRecord(stop);
+	//     cudaEventSynchronize(stop);
+	// 	delta = 0;
+	// 	cudaEventElapsedTime(&delta, start, stop);
+	// 	printf("granularity = %d, time in milliseconds = %f\n",g,delta);
+	//     // conv1<<<blocksPerGrid, threadsPerBlock>>>(d_ifm, d_ofm, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
+	//     // val_checker<<<1,1>>>(d_ifm,d_ofm,d_mask,num_in_fm*in_fm_w*in_fm_h , num_out_fm*out_fm_w*out_fm_h, num_out_fm*num_in_fm*mask_size*mask_size);
+	//     err = cudaGetLastError();
+	//     if (err != cudaSuccess)
+	//     {
+	//         fprintf(stderr, "Failed to launch kernel conv2 (error code %s)!\n", cudaGetErrorString(err));
+	//         exit(EXIT_FAILURE);
+	//     }
+	// }
+
+	// for conv3
+	for(int g=1;g<=16;g++)
     {
     	blocksPerGrid.x = 1;
     	blocksPerGrid.y = 1;
-    	blocksPerGrid.z =  num_out_fm;
+    	blocksPerGrid.z =  (num_out_fm + g - 1)/g ;
 
     	threadsPerBlock.x = out_fm_w;
-    	threadsPerBlock.y = ((out_fm_h + g - 1)/g);
+    	threadsPerBlock.y = out_fm_h;
     	threadsPerBlock.z = 1;
 
 		printf("threadsPerBlock = %d,%d,%d\n",threadsPerBlock.x,threadsPerBlock.y,threadsPerBlock.z);
+		printf("blocksPerGrid = %d,%d,%d\n",blocksPerGrid.x,blocksPerGrid.y,blocksPerGrid.z);
+		
 		cudaEventRecord(start);
 
-	    conv2<<<blocksPerGrid, threadsPerBlock>>>(d_ifm, d_ofm, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, g);
+	    conv3<<<blocksPerGrid, threadsPerBlock>>>(d_ifm, d_ofm, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, g);
 	    
 	    cudaEventRecord(stop);
 	    cudaEventSynchronize(stop);
@@ -132,7 +167,7 @@ int main(void)
 	    err = cudaGetLastError();
 	    if (err != cudaSuccess)
 	    {
-	        fprintf(stderr, "Failed to launch kernel conv2 (error code %s)!\n", cudaGetErrorString(err));
+	        fprintf(stderr, "Failed to launch kernel conv3 (error code %s)!\n", cudaGetErrorString(err));
 	        exit(EXIT_FAILURE);
 	    }
 	}

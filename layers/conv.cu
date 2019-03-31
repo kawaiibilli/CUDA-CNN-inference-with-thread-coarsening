@@ -108,9 +108,6 @@ __global__ void conv2(const float *ifm, float *ofm, float *mask, int in_h, int i
   // float local_mask[2500];
   __shared__ float shared_mask[2500];
   __shared__ float ifm_plane[3100];
-  // if(threadIdx.x ==0 && threadIdx.y ==0)
-  //   shared_mask = (float *)malloc(in_n*mask_size*mask_size * sizeof(float));
-  // __syncthreads();
 
   float output[32];  // max granularity = 32
   for(int g=0; g<granularity; g++)
@@ -207,13 +204,6 @@ __global__ void conv2(const float *ifm, float *ofm, float *mask, int in_h, int i
       }
     }
   }
-
-
-  // if(zflag==0)
-  // {
-  //   printf("all ifm window zero in block_tid\n");
-  // }
-  // __syncthreads();
   
   // // printf("out_z = %d, out_w = %d, out_h = %d, out_x = %d, out_y = %d, granularity = %d \n",out_z,out_w,out_h,out_x,out_y,granularity);
   // // writing back to global memory
@@ -222,6 +212,78 @@ __global__ void conv2(const float *ifm, float *ofm, float *mask, int in_h, int i
     ofm[out_z*out_w*out_h + (out_y + g)*out_w + out_x] = (output[g]>0)?output[g]:0;
   }
 }
+
+__device__ void load_mask_planes(float *mask, float *mask_planes, int k, int start_layer, int mask_size, int granularity, int in_n, int out_m)
+{
+  int block_tid = blockDim.x * threadIdx.y + threadIdx.x;
+  if(block_tid>=(mask_size*mask_size))
+    {
+      return;
+    }
+
+  int offset = k*mask_size*mask_size;
+  int curr_ele, out_idx;
+  for(int g=0;g<granularity; g++)
+  {
+    curr_ele = offset + (start_layer + g)*in_n*mask_size*mask_size + block_tid;
+    out_idx = g*mask_size*mask_size + block_tid;
+    mask_planes[out_idx] = mask[curr_ele];
+  }
+}
+__global__ void conv3(const float *ifm, float *ofm, float *mask, int in_h, int in_w, int in_n, int out_h, int out_w, int out_m, int mask_size, int pad, int stride, int granularity)  // num threads in a block would be (in_w,ceil(in_h/granularity))
+{
+  int zflag = 0;
+
+  int out_x = threadIdx.x;
+  int out_y = threadIdx.y;
+  int out_z = blockIdx.z*granularity;
+
+  int in_x = (out_x - pad -1)*stride + mask_size;
+  int in_y = (out_y - pad -1)*stride + mask_size;
+
+  if((out_z + granularity) > out_m)
+  {
+    granularity = out_m - out_z;
+  }
+
+  __shared__ float mask_planes[500];
+  __shared__ float ifm_plane[3030];
+
+  float output[32];  // max granularity = 32
+  for(int g=0; g<granularity; g++)
+  {
+    output[g] = 0.0;
+  }
+
+  //computing output values by accumulating
+  for(int k=0; k<in_n; k++)
+  {
+    load_shared_plane(ifm, ifm_plane, k, in_n, in_h, in_w);
+    __syncthreads();
+    load_mask_planes(mask, mask_planes, k, out_z, mask_size, granularity, in_n, out_m);
+    __syncthreads();
+
+    for(int g=0; g<granularity; g++)
+    {
+      for(int i=0;i<mask_size;i++)
+      {
+        for(int j=0;j<mask_size;j++)
+        {
+          output[g] +=  get_ifm_plane_idx(ifm_plane, (in_y - i), (in_x - j), in_h, in_w) * mask_planes[g*mask_size*mask_size + i*mask_size + j];
+        }
+      }
+    }
+  }
+  
+  // // printf("out_z = %d, out_w = %d, out_h = %d, out_x = %d, out_y = %d, granularity = %d \n",out_z,out_w,out_h,out_x,out_y,granularity);
+  // // writing back to global memory
+  for(int g=0;g<granularity;g++)
+  {
+    ofm[(out_z + g)*out_w*out_h + out_y*out_w + out_x] = (output[g]>0)?output[g]:0;
+  }
+}
+
+
 
 __global__ void val_checker (float* ifm, float* ofm, float *mask, int ifm_size, int ofm_size, int total_mask_size )
 {
@@ -267,6 +329,9 @@ __global__ void val_checker (float* ifm, float* ofm, float *mask, int ifm_size, 
   }
   __syncthreads();
 }
+
+
+
 
 // __global__ void gen_conv2d(const float *ifm, float *ofm, float *mask, int in_h, int in_w, int in_n,int out_h, int out_w, int out_m, int mask_size, int pad, int stride, int granularity)  // num threads in a block would be (in_w,ceil(in_h/granularity))
 // {
