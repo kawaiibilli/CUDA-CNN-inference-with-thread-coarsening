@@ -2,8 +2,14 @@
 
 // ******************** General Mat-Mat Functions ******************
 
-__global__ void gen_matvec(float *A, float *x, float *y, float *B, const int m, const int n, const int nelem_per_thread) 
+__global__ void gen_matvec(float *W, float *inp, float *out, float *bias, const int out_dim, const int in_dim, const int nelem_per_thread) 
 {
+	float* A = W;
+	float* x = inp;
+	float* y = out;
+	float* B = bias;
+	int m = out_dim;
+	int n = in_dim;
 	// Global and block wise thread index
 	unsigned int xIndex = blockDim.x * blockIdx.x + threadIdx.x, tId = threadIdx.x;
 	// No of rows in the shared memory
