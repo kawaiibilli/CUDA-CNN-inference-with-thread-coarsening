@@ -12,11 +12,12 @@ fc9_shared = [0.186604, 0.190959, 0.199038, 0.267721, 0.319124, 0.397306, 0.3929
 fc9_glob = [0.212720, 0.221362, 0.244340, 0.330681, 0.395620, 0.490327, 0.521429, 0.636912, 0.618766, 0.710131, 0.722831, 0.826623, 0.822750, 0.898101, 0.933479, 1.003297, 1.052992, 1.119893, 1.165750, 1.228553, 1.283405, 1.344979, 1.388980, 1.465308, 1.507177, 1.578350, 1.604282, 1.701806, 1.697214, 1.808641, 1.826169, 1.917068]
 
 
-plt.title('conv_2 layer perfomance for different version across granularities')
-plt.ylabel('execution time in ms')
-plt.xlabel('granularity')
 
-for (fc_shared,fc_glob) in [(fc7_shared,fc7_glob),(fc8_shared,fc8_glob),(fc9_shared,fc9_glob)]:
+
+for (fc_shared,fc_glob,name) in [(fc7_shared,fc7_glob,'fc7'),(fc8_shared,fc8_glob,'fc8'),(fc9_shared,fc9_glob, 'fc9')]:
+	plt.title('{} layer perfomance vs Thread granularity'.format(name.upper()))
+	plt.ylabel('Execution time in ms')
+	plt.xlabel('Granularity')
 	plt.plot(granularity,fc_shared,color='r',label='Input and bias shared mem fetch')
 	plt.plot(granularity,fc_glob,color='b',label='Input and bias global mem fetch')
 	plt.legend(loc='upper left')
