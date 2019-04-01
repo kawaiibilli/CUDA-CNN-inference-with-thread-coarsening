@@ -1,0 +1,44 @@
+import matplotlib.pyplot as plt
+
+granularity = []
+for i in range(32):
+    granularity.append(i+1)
+pool1v1 = [0.037056,0.034496,0.053504,0.050592,0.057472,0.068512,0.071776,0.080416,0.097024,0.102144,0.114784,0.124192,0.135872,0.148128,0.159840,0.170272,0.182496,0.192224,0.202944,0.212224,0.228512,0.233056,0.242816,0.253376,0.263552,0.274368,0.284416,0.296960,0.305920,0.316672,0.327040,0.339040]
+pool1v2 = [0.190208,0.104640,0.073152,0.059520,0.058240,0.056480,0.059104,0.055392,0.061312,0.061824,0.061632,0.059680,0.060288,0.060832,0.060736,0.057024,0.062176,0.062944,0.063296,0.064768,0.064448,0.063968,0.065920,0.063744,0.069664,0.070624,0.068288,0.066752,0.068000,0.069440,0.066912,0.066848]
+
+pool2v1 = [0.035392,0.027296,0.034368,0.045120,0.053792,0.064544,0.070656,0.080928,0.093120,0.105024,0.117568,0.128352,0.140416,0.150176,0.159648,0.168064,0.180416,0.190336,0.201984,0.210656,0.220160,0.217280,0.227360,0.235744,0.246976,0.256704,0.266112,0.277440,0.285984,0.296192,0.307136,0.317088]
+pool2v2 = [0.022400,0.020160,0.026208,0.028064,0.034368,0.037344,0.041376,0.040064,0.043744,0.042752,0.044704,0.046048,0.045568,0.045728,0.047776,0.044416,0.048064,0.049056,0.048384,0.047680,0.049184,0.048416,0.049088,0.049696,0.050400,0.052384,0.052128,0.052800,0.053120,0.054496,0.054624,0.055136]
+
+pool3v1 = [0.054016,0.019328,0.022464,0.026592,0.031392,0.038816,0.044032,0.049888,0.057344,0.061120,0.062464,0.063136,0.062464,0.062464,0.065408,0.064512,0.066560,0.068512,0.069408,0.069632,0.072704,0.072704,0.073600,0.075776,0.074752,0.077760,0.081600,0.077824,0.085856,0.081920,0.086016,0.086016]
+pool3v2 = [0.022528,0.019456,0.020480,0.022528,0.025600,0.028672,0.031392,0.033792,0.035840,0.039936,0.040960,0.044032,0.047104,0.050176,0.053248,0.055296,0.059136,0.060416,0.064512,0.066560,0.068608,0.071680,0.074752,0.078848,0.079872,0.082944,0.086016,0.090016,0.092096,0.094944,0.097216,0.100320]
+
+plt.figure(1)
+plt.title('Pooling layer 1 perfomance for different version across granularities\n')
+plt.ylabel('execution time in ms')
+plt.xlabel('granularity')
+
+plt.plot(granularity,pool1v1,color='r',label='v1 : All data accessed from global memory')
+plt.plot(granularity,pool1v2,color='b',label='v2 : Data loaded in shared memory')
+plt.legend(loc='upper right')
+plt.savefig('pool1.png')
+
+plt.figure(2)
+plt.title('Pooling layer 2 perfomance for different version across granularities\n')
+plt.ylabel('execution time in ms')
+plt.xlabel('granularity')
+
+plt.plot(granularity,pool2v1,color='r',label='v1 : All data accessed from global memory')
+plt.plot(granularity,pool2v2,color='b',label='v2 : Data loaded in shared memory')
+plt.legend(loc='upper right')
+plt.savefig('pool2.png')
+
+plt.figure(3)
+plt.title('Pooling layer 3 perfomance for different version across granularities\n')
+plt.ylabel('execution time in ms')
+plt.xlabel('granularity')
+
+plt.plot(granularity,pool3v1,color='r',label='v1 : All data accessed from global memory')
+plt.plot(granularity,pool3v2,color='b',label='v2 : Data loaded in shared memory')
+plt.legend(loc='upper right')
+plt.savefig('pool3.png')
+plt.show()

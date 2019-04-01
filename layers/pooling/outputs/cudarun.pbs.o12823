@@ -1,0 +1,205 @@
+rm -rf helloCUDA
+nvcc -I ./ pooling.cu host.cu -o helloCUDA
+./helloCUDA
+Copy input data from the host memory to the CUDA device
+
+*****************METHOD 1 (w/o shared mem)*********************
+
+CUDA kernel launch with 43 blocks of 1024 threads
+granularity = 1, time in milliseconds = 0.035392
+
+CUDA kernel launch with 22 blocks of 1024 threads
+granularity = 2, time in milliseconds = 0.027296
+
+CUDA kernel launch with 15 blocks of 1024 threads
+granularity = 3, time in milliseconds = 0.034368
+
+CUDA kernel launch with 11 blocks of 1024 threads
+granularity = 4, time in milliseconds = 0.045120
+
+CUDA kernel launch with 9 blocks of 1024 threads
+granularity = 5, time in milliseconds = 0.053792
+
+CUDA kernel launch with 8 blocks of 1024 threads
+granularity = 6, time in milliseconds = 0.064544
+
+CUDA kernel launch with 7 blocks of 1024 threads
+granularity = 7, time in milliseconds = 0.070656
+
+CUDA kernel launch with 6 blocks of 1024 threads
+granularity = 8, time in milliseconds = 0.080928
+
+CUDA kernel launch with 5 blocks of 1024 threads
+granularity = 9, time in milliseconds = 0.093120
+
+CUDA kernel launch with 5 blocks of 1024 threads
+granularity = 10, time in milliseconds = 0.105024
+
+CUDA kernel launch with 4 blocks of 1024 threads
+granularity = 11, time in milliseconds = 0.117568
+
+CUDA kernel launch with 4 blocks of 1024 threads
+granularity = 12, time in milliseconds = 0.128352
+
+CUDA kernel launch with 4 blocks of 1024 threads
+granularity = 13, time in milliseconds = 0.140416
+
+CUDA kernel launch with 4 blocks of 1024 threads
+granularity = 14, time in milliseconds = 0.150176
+
+CUDA kernel launch with 3 blocks of 1024 threads
+granularity = 15, time in milliseconds = 0.159648
+
+CUDA kernel launch with 3 blocks of 1024 threads
+granularity = 16, time in milliseconds = 0.168064
+
+CUDA kernel launch with 3 blocks of 1024 threads
+granularity = 17, time in milliseconds = 0.180416
+
+CUDA kernel launch with 3 blocks of 1024 threads
+granularity = 18, time in milliseconds = 0.190336
+
+CUDA kernel launch with 3 blocks of 1024 threads
+granularity = 19, time in milliseconds = 0.201984
+
+CUDA kernel launch with 3 blocks of 1024 threads
+granularity = 20, time in milliseconds = 0.210656
+
+CUDA kernel launch with 3 blocks of 1024 threads
+granularity = 21, time in milliseconds = 0.220160
+
+CUDA kernel launch with 2 blocks of 1024 threads
+granularity = 22, time in milliseconds = 0.217280
+
+CUDA kernel launch with 2 blocks of 1024 threads
+granularity = 23, time in milliseconds = 0.227360
+
+CUDA kernel launch with 2 blocks of 1024 threads
+granularity = 24, time in milliseconds = 0.235744
+
+CUDA kernel launch with 2 blocks of 1024 threads
+granularity = 25, time in milliseconds = 0.246976
+
+CUDA kernel launch with 2 blocks of 1024 threads
+granularity = 26, time in milliseconds = 0.256704
+
+CUDA kernel launch with 2 blocks of 1024 threads
+granularity = 27, time in milliseconds = 0.266112
+
+CUDA kernel launch with 2 blocks of 1024 threads
+granularity = 28, time in milliseconds = 0.277440
+
+CUDA kernel launch with 2 blocks of 1024 threads
+granularity = 29, time in milliseconds = 0.285984
+
+CUDA kernel launch with 2 blocks of 1024 threads
+granularity = 30, time in milliseconds = 0.296192
+
+CUDA kernel launch with 2 blocks of 1024 threads
+granularity = 31, time in milliseconds = 0.307136
+
+CUDA kernel launch with 2 blocks of 1024 threads
+granularity = 32, time in milliseconds = 0.317088
+
+
+*****************METHOD 2 (w/ shared mem)*********************
+
+CUDA kernel launch with 256 blocks of 169 threads
+granularity = 1, time in milliseconds = 0.022400
+
+CUDA kernel launch with 256 blocks of 85 threads
+granularity = 2, time in milliseconds = 0.020160
+
+CUDA kernel launch with 256 blocks of 57 threads
+granularity = 3, time in milliseconds = 0.026208
+
+CUDA kernel launch with 256 blocks of 43 threads
+granularity = 4, time in milliseconds = 0.028064
+
+CUDA kernel launch with 256 blocks of 34 threads
+granularity = 5, time in milliseconds = 0.034368
+
+CUDA kernel launch with 256 blocks of 29 threads
+granularity = 6, time in milliseconds = 0.037344
+
+CUDA kernel launch with 256 blocks of 25 threads
+granularity = 7, time in milliseconds = 0.041376
+
+CUDA kernel launch with 256 blocks of 22 threads
+granularity = 8, time in milliseconds = 0.040064
+
+CUDA kernel launch with 256 blocks of 19 threads
+granularity = 9, time in milliseconds = 0.043744
+
+CUDA kernel launch with 256 blocks of 17 threads
+granularity = 10, time in milliseconds = 0.042752
+
+CUDA kernel launch with 256 blocks of 16 threads
+granularity = 11, time in milliseconds = 0.044704
+
+CUDA kernel launch with 256 blocks of 15 threads
+granularity = 12, time in milliseconds = 0.046048
+
+CUDA kernel launch with 256 blocks of 13 threads
+granularity = 13, time in milliseconds = 0.045568
+
+CUDA kernel launch with 256 blocks of 13 threads
+granularity = 14, time in milliseconds = 0.045728
+
+CUDA kernel launch with 256 blocks of 12 threads
+granularity = 15, time in milliseconds = 0.047776
+
+CUDA kernel launch with 256 blocks of 11 threads
+granularity = 16, time in milliseconds = 0.044416
+
+CUDA kernel launch with 256 blocks of 10 threads
+granularity = 17, time in milliseconds = 0.048064
+
+CUDA kernel launch with 256 blocks of 10 threads
+granularity = 18, time in milliseconds = 0.049056
+
+CUDA kernel launch with 256 blocks of 9 threads
+granularity = 19, time in milliseconds = 0.048384
+
+CUDA kernel launch with 256 blocks of 9 threads
+granularity = 20, time in milliseconds = 0.047680
+
+CUDA kernel launch with 256 blocks of 9 threads
+granularity = 21, time in milliseconds = 0.049184
+
+CUDA kernel launch with 256 blocks of 8 threads
+granularity = 22, time in milliseconds = 0.048416
+
+CUDA kernel launch with 256 blocks of 8 threads
+granularity = 23, time in milliseconds = 0.049088
+
+CUDA kernel launch with 256 blocks of 8 threads
+granularity = 24, time in milliseconds = 0.049696
+
+CUDA kernel launch with 256 blocks of 7 threads
+granularity = 25, time in milliseconds = 0.050400
+
+CUDA kernel launch with 256 blocks of 7 threads
+granularity = 26, time in milliseconds = 0.052384
+
+CUDA kernel launch with 256 blocks of 7 threads
+granularity = 27, time in milliseconds = 0.052128
+
+CUDA kernel launch with 256 blocks of 7 threads
+granularity = 28, time in milliseconds = 0.052800
+
+CUDA kernel launch with 256 blocks of 6 threads
+granularity = 29, time in milliseconds = 0.053120
+
+CUDA kernel launch with 256 blocks of 6 threads
+granularity = 30, time in milliseconds = 0.054496
+
+CUDA kernel launch with 256 blocks of 6 threads
+granularity = 31, time in milliseconds = 0.054624
+
+CUDA kernel launch with 256 blocks of 6 threads
+granularity = 32, time in milliseconds = 0.055136
+
+Copy output data from the CUDA device to the host memory
+Test PASSED
+Done
