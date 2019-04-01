@@ -85,9 +85,9 @@ int main(void)
         }
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
-	    //delta = 0;
-	    cudaEventElapsedTime(&delta, start, stop);
-	    printf("granularity = %d, time in milliseconds = %f\n\n", granularity, delta);
+        //delta = 0;
+        cudaEventElapsedTime(&delta, start, stop);
+        printf("granularity = %d, time in milliseconds = %f\n\n", granularity, delta);
 	}
 	
 	
@@ -107,9 +107,9 @@ int main(void)
         }
         cudaEventRecord(stop);
         cudaEventSynchronize(stop);
-	    //delta = 0;
-	    cudaEventElapsedTime(&delta, start, stop);
-	    printf("granularity = %d, time in milliseconds = %f\n\n", granularity, delta);
+        //delta = 0;
+        cudaEventElapsedTime(&delta, start, stop);
+        printf("granularity = %d, time in milliseconds = %f\n\n", granularity, delta);
 	}
 
     // Copy the device result vector in device memory to the host result vector
