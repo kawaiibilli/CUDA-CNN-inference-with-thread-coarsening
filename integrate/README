@@ -1,4 +1,4 @@
-Download the pre trained model parameters fromLink: https://www.cs.toronto.edu/~guerzhoy/tf_alexnet/bvlc_alexnet.npy
+Download the pre trained model parameters CSV file : https://drive.google.com/file/d/10ZoX2jYzy9XqdjoIMm_jk5uSP-1dJwTl/view?usp=sharing
 the commands to run the code on the 10.5.18.112 server :
 $ make
 $ ./cnn_inference
