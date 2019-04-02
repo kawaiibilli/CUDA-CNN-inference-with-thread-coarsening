@@ -51,17 +51,17 @@ __global__ void conv1_kernel(const float *ifm, float *ofm, float *mask, int in_h
     output[g] = 0.0;
   }
 
-  // // loading the local mask
-  // for(int k=0;k<in_n;k++)
-  // {
-  //   for(int i=0;i<mask_size;i++)
-  //   {
-  //     for(int j=0;j<mask_size;j++)
-  //     {
-  //       local_mask[k*mask_size*mask_size + i*mask_size + j] = mask[out_z*in_n*mask_size*mask_size + k*mask_size*mask_size + i*mask_size +j];
-  //     }
-  //   }
-  // }
+  // loading the local mask
+  for(int k=0;k<in_n;k++)
+  {
+    for(int i=0;i<mask_size;i++)
+    {
+      for(int j=0;j<mask_size;j++)
+      {
+        local_mask[k*mask_size*mask_size + i*mask_size + j] = mask[out_z*in_n*mask_size*mask_size + k*mask_size*mask_size + i*mask_size +j];
+      }
+    }
+  }
 
 
 
@@ -92,9 +92,6 @@ __global__ void conv1_kernel(const float *ifm, float *ofm, float *mask, int in_h
   // __syncthreads(); // experiment with the syncthreads in the for loop
 
 
-
-
-
   // computing results
   for(int g=0; g<granularity; g++)
   {
@@ -112,7 +109,7 @@ __global__ void conv1_kernel(const float *ifm, float *ofm, float *mask, int in_h
 
   for(int g=0;g<granularity;g++)
   {
-    ofm[out_z*out_w*out_h + (out_y + g)*out_w + out_x] = (output[g]>0)?output[g]:0;
+    ofm[out_z*out_w*out_h + (out_y + g)*out_w + out_x] = output[g];//(output[g]>0)?output[g]:0;
   }
 }
 

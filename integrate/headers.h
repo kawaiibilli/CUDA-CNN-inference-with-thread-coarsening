@@ -44,6 +44,8 @@ __global__ void shared_pool(float *inp, float *out, int inp_r, int inp_c, int de
 
 __global__ void gen_matvec(float *A, float *x, float *y, float *B, const int m, const int n, const int nelem_per_thread);
 
+__global__ void gen_matvec_noshared(float *A, float *x, float *y, float *B, const int m, const int n, const int nelem_per_thread);
+
 __host__ FCLayer processFC(std::stringstream& ss) ;
 
 __host__ ConvLayer processConv(std::stringstream& ss);

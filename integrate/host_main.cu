@@ -8,7 +8,8 @@
 #include "headers.h"
 
 
-int run ( int granularity){
+int main(){
+	int granularity;
 	std::string line;
 	std::ifstream in("alexnet.csv");
 	ConvLayer conv_1, conv2, conv3, conv4, conv5;
@@ -32,16 +33,13 @@ int run ( int granularity){
     	}
     }
     printf("load complete \n");
+	for(granularity =1; granularity <= 16; granularity++) {
 
-    cudaError_t err  = cudaDeviceReset();
 
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to deinitialize the device! error=%s\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
+    	cudaError_t err = cudaSuccess;
 
-    float *d_ofm, *d_out, *d_ofm_3, *d_ofm_4, *d_ofm_5, *out_1, *out_2, *out_3;
+
+    	float *d_ofm, *d_out, *d_ofm_3, *d_ofm_4, *d_ofm_5, *out_1, *out_2, *out_3;
 		cudaEvent_t start, stop;
 		err = cudaEventCreate(&start);
 		if (err != cudaSuccess)
@@ -72,16 +70,21 @@ int run ( int granularity){
 		   	int mask_size = 11;
 		   	int stride = 4;
 		   	int pad = 0;
+
 		   	int in_size = num_in_fm*in_fm_w*in_fm_h * sizeof(float);
 		   	float *h_ifm = (float*) malloc(in_size);
 		   	// random generation of the i/p image matrix 
 		   	for(int i=0;i< num_in_fm*in_fm_w*in_fm_h;i++){
-		   		h_ifm[i] = rand()/(float) RAND_MAX;
+		   		h_ifm[i] =  (rand()%256)+1;
 		   	}
+
+		   	// for(int i=0;i<10;i++){
+		   	// 	printf("%d : %f\n",i,h_ifm[i]);
+		   	// }
 		   	int out_size = num_out_fm*out_fm_w*out_fm_w * sizeof(float);
 		   	int total_mask_size = num_out_fm*num_in_fm*mask_size*mask_size*sizeof(float);
-		   	printf(" In conv 1 \n");
-			printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv_1.filter_size,conv_1.num_layers,conv_1.depth);
+		 //   	printf(" In conv 1 \n");
+			// printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv_1.filter_size,conv_1.num_layers,conv_1.depth);
 	
 		   	float *d_ifm = NULL;
 		    err = cudaMalloc((void **)&d_ifm, in_size);
@@ -114,19 +117,26 @@ int run ( int granularity){
 		        exit(EXIT_FAILURE);
 		    }
 
+		    // for(int i=0;i<10;i++){
+		    // 	printf("%d %f\n",i,conv_1.weights[i]);
+		    // }
+
 			err = cudaMemcpy(d_mask, conv_1.weights, total_mask_size, cudaMemcpyHostToDevice);
 		    if (err != cudaSuccess)
 		    {
 		        fprintf(stderr, "Failed to copy matrix mask from host to device (error code %s)!\n", cudaGetErrorString(err));
 		        exit(EXIT_FAILURE);
 		    }
-				printf("108\n");
+				// printf("108\n");
+
+
+
 			dim3 blocksPerGrid(num_out_fm,1,1);
  
 		   	blocksPerGrid.x = 2;
 			blocksPerGrid.y = 2;
 			blocksPerGrid.z =  num_out_fm;
-		    dim3 threadsPerBlock(out_fm_w/2, (((out_fm_h+1)/2 + granularity -1)/granularity) , 1);
+		    dim3 threadsPerBlock((out_fm_w + 1)/2, (((out_fm_h+1)/2 + granularity -1)/granularity) , 1);
 		    printf("blocks per grid for Conv1 = %d,%d,%d\n",blocksPerGrid.x,blocksPerGrid.y,blocksPerGrid.z);
 			printf("threadsPerBlock for Conv1 = %d,%d,%d\n",threadsPerBlock.x,threadsPerBlock.y,threadsPerBlock.z);
 	
@@ -140,13 +150,44 @@ int run ( int granularity){
 	
 		    conv1_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_ifm, d_ofm, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
 
-		    err = cudaGetLastError();
+
+		     err = cudaGetLastError();
 	
 		    if (err != cudaSuccess)
 		    {
 		        fprintf(stderr, "Failed to launch conv1 kernel (error code %s)!\n", cudaGetErrorString(err));
 		        exit(EXIT_FAILURE);
 		    }
+
+
+		    // float *h_ofm = (float *)malloc(out_size);
+		    // err = cudaMemcpy(h_ofm, d_ofm, out_size, cudaMemcpyDeviceToHost);
+		    // if (err != cudaSuccess)
+		    // {
+		    //     fprintf(stderr, "Failed to copy matrix ofm from device to host (error code %s)!\n", cudaGetErrorString(err));
+		    //     exit(EXIT_FAILURE);
+		    // }
+
+		    // printf("printing 10 ofm elements\n");
+		    // for(int i=0;i<10;i++)
+		    // {
+		    //     printf("ofm[%d] = %f\n",i,h_ofm[i]);
+		    // }
+
+		    //  float *h_mask = (float *)malloc(total_mask_size);
+		    // err = cudaMemcpy(h_mask, d_mask, total_mask_size, cudaMemcpyDeviceToHost);
+		    // if (err != cudaSuccess)
+		    // {
+		    //     fprintf(stderr, "Failed to copy matrix ofm from device to host (error code %s)!\n", cudaGetErrorString(err));
+		    //     exit(EXIT_FAILURE);
+		    // }
+
+		    // printf("printing 10 mask elements\n");
+		    // for(int i=0;i<10;i++)
+		    // {
+		    //     printf("ofm[%d] = %f\n",i,h_mask[i]);
+		    // }
+
 
 		    cudaEventRecord(stop);
 		    cudaEventSynchronize(stop);
@@ -172,7 +213,6 @@ int run ( int granularity){
 		    free(h_ifm);
 			
 		}
-		printf("conv1 done \n");
 		// maxpooling 1 
 		{
 			
@@ -196,7 +236,8 @@ int run ( int granularity){
 		    
         	dim3 blocksPerGrid(depth,1,1);
 		    dim3 threadsPerBlock((out_r*out_c - 1)/granularity + 1,1 , 1);
-		    printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid.x, threadsPerBlock.x);
+		    printf("blocks per grid for maxpooling 1= %d,%d,%d\n",blocksPerGrid.x,blocksPerGrid.y,blocksPerGrid.z);
+			printf("threadsPerBlock for maxpooling 1 = %d,%d,%d\n",threadsPerBlock.x,threadsPerBlock.y,threadsPerBlock.z);
 	
 			err = cudaEventRecord(start);
 			if (err != cudaSuccess)
@@ -239,8 +280,8 @@ int run ( int granularity){
 	
 	
 		} // o/p of maxpooling is in d_out 
-		printf("maxpooling 1 Done. \n");
-		// Conv2
+		// printf("maxpooling 1 Done. \n");
+		//Conv2
 		{
 			if(true){
 	
@@ -260,8 +301,8 @@ int run ( int granularity){
 	
 			   	int out_size = num_out_fm*out_fm_w*out_fm_w * sizeof(float);
 			   	int total_mask_size = num_out_fm*num_in_fm*mask_size*mask_size*sizeof(float);
-			   	printf(" In conv 2 \n");
-				printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv2.filter_size,conv2.num_layers,conv2.depth);
+			 //   	printf(" In conv 2 \n");
+				// printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv2.filter_size,conv2.num_layers,conv2.depth);
 	
 			   	
 			    d_ofm = NULL;
@@ -290,11 +331,12 @@ int run ( int granularity){
 			
 			    dim3 blocksPerGrid(num_out_fm,1,1);
 			    dim3 threadsPerBlock(out_fm_w, ((out_fm_h + granularity - 1)/granularity) , 1);
-				printf("threadsPerBlock for Conv1 = %d,%d,%d\n",threadsPerBlock.x,threadsPerBlock.y,threadsPerBlock.z);
+				printf("blocks per grid for Conv2 = %d,%d,%d\n",blocksPerGrid.x,blocksPerGrid.y,blocksPerGrid.z);
+				printf("threadsPerBlock for Conv2 = %d,%d,%d\n",threadsPerBlock.x,threadsPerBlock.y,threadsPerBlock.z);
 	
 				cudaEventRecord(start);
 	
-			    conv2_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_out, d_ofm, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
+			    conv3_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_out, d_ofm, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
 
 			    cudaEventRecord(stop);
 			    cudaEventSynchronize(stop);
@@ -319,7 +361,7 @@ int run ( int granularity){
 	
 			} 
 		}	// o/p is d_ofm 
-		printf("Conv2 Done \n");
+		// printf("Conv2 Done \n");
 		// maxpooling 2
 		{
 			// i/p : 256x27x27 , filter : 3x3 , stride 2 , o/p : 265x13x13
@@ -341,7 +383,8 @@ int run ( int granularity){
 	
 	     	int threadsPerBlock = (out_r*out_c - 1)/granularity + 1;
         	int blocksPerGrid = depth;
-		    printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
+		    printf("blocks per grid for maxpooling 2 = %d,%d,%d\n",blocksPerGrid,1,1);
+			printf("threadsPerBlock for maxpooling 2 = %d,%d,%d\n",threadsPerBlock,1,1);
 	
 			cudaEventRecord(start);
 		    // d_ofm is the o/p from the layer, will be the i/p of this 
@@ -370,7 +413,7 @@ int run ( int granularity){
 		    }
 	
 		} // o/p of maxpooling is in d_out 
-		printf("maxpooling 2 \n");
+		// printf("maxpooling 2 \n");
 		// Conv3
 		{
 			 
@@ -391,8 +434,8 @@ int run ( int granularity){
 			   	int out_size = num_out_fm*out_fm_w*out_fm_w * sizeof(float);
 			   	int total_mask_size = num_out_fm*num_in_fm*mask_size*mask_size*sizeof(float);
 			   	
-				printf(" In conv 3 \n");
-				printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv3.filter_size,conv3.num_layers,conv3.depth);
+				// printf(" In conv 3 \n");
+				// printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv3.filter_size,conv3.num_layers,conv3.depth);
 	
 			    d_ofm_3 = NULL;
 			    err = cudaMalloc((void **)&d_ofm_3, out_size);
@@ -420,11 +463,12 @@ int run ( int granularity){
 			
 			    dim3 blocksPerGrid(num_out_fm,1,1);
 			    dim3 threadsPerBlock(out_fm_w, ((out_fm_h + granularity - 1)/granularity) , 1);
-				printf("threadsPerBlock for Conv1 = %d,%d,%d\n",threadsPerBlock.x,threadsPerBlock.y,threadsPerBlock.z);
+				printf("blocks per grid for Conv3 = %d,%d,%d\n",blocksPerGrid.x,blocksPerGrid.y,blocksPerGrid.z);
+				printf("threadsPerBlock for Conv3 = %d,%d,%d\n",threadsPerBlock.x,threadsPerBlock.y,threadsPerBlock.z);
 	
 				cudaEventRecord(start);
 	
-			    conv2_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_out, d_ofm_3, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
+			    conv3_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_out, d_ofm_3, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
 		    	
 
 		    	cudaEventRecord(stop);
@@ -448,7 +492,7 @@ int run ( int granularity){
 	
 			} 
 		}	// o/p is d_ofm_3 
-		printf("Conv3 Done\n");
+		// printf("Conv3 Done\n");
 		// Conv4
 		{
 			 
@@ -471,8 +515,8 @@ int run ( int granularity){
 			   	int out_size = num_out_fm*out_fm_w*out_fm_w * sizeof(float);
 			   	int total_mask_size = num_out_fm*num_in_fm*mask_size*mask_size*sizeof(float);
 			
-				printf(" In conv 4 \n");
-				printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv4.filter_size,conv4.num_layers,conv4.depth);
+				// printf(" In conv 4 \n");
+				// printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv4.filter_size,conv4.num_layers,conv4.depth);
 		
 			    d_ofm_4 = NULL;
 			    err = cudaMalloc((void **)&d_ofm_4, out_size);
@@ -500,11 +544,12 @@ int run ( int granularity){
 			
 			    dim3 blocksPerGrid(num_out_fm,1,1);
 			    dim3 threadsPerBlock(out_fm_w, ((out_fm_h + granularity - 1)/granularity) , 1);
-				printf("threadsPerBlock for Conv1 = %d,%d,%d\n",threadsPerBlock.x,threadsPerBlock.y,threadsPerBlock.z);
+				printf("blocks per grid for Conv4 = %d,%d,%d\n",blocksPerGrid.x,blocksPerGrid.y,blocksPerGrid.z);
+				printf("threadsPerBlock for Conv4 = %d,%d,%d\n",threadsPerBlock.x,threadsPerBlock.y,threadsPerBlock.z);
 	
 				cudaEventRecord(start);
 	
-			    conv2_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_ofm_3, d_ofm_4, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
+			    conv3_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_ofm_3, d_ofm_4, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
 
 
 			    cudaEventRecord(stop);
@@ -530,7 +575,7 @@ int run ( int granularity){
 	
 			} 
 		}	// o/p is d_ofm_4 
-		printf("Conv4 Done\n");
+		// printf("Conv4 Done\n");
 		// Conv5
 		{
 			 
@@ -554,8 +599,8 @@ int run ( int granularity){
 			   	int out_size = num_out_fm*out_fm_w*out_fm_w * sizeof(float);
 			   	int total_mask_size = num_out_fm*num_in_fm*mask_size*mask_size*sizeof(float);
 	
-				printf(" In conv 5 \n");
-				printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv5.filter_size,conv5.num_layers,conv5.depth);
+				// printf(" In conv 5 \n");
+				// printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv5.filter_size,conv5.num_layers,conv5.depth);
 	
 			    d_ofm_5 = NULL;
 			    err = cudaMalloc((void **)&d_ofm_5, out_size);
@@ -583,11 +628,12 @@ int run ( int granularity){
 			
 			    dim3 blocksPerGrid(num_out_fm,1,1);
 			    dim3 threadsPerBlock(out_fm_w, ((out_fm_h + granularity - 1)/granularity) , 1);
-				printf("threadsPerBlock for Conv1 = %d,%d,%d\n",threadsPerBlock.x,threadsPerBlock.y,threadsPerBlock.z);
+				printf("blocks per grid for Conv5 = %d,%d,%d\n",blocksPerGrid.x,blocksPerGrid.y,blocksPerGrid.z);
+				printf("threadsPerBlock for Conv5 = %d,%d,%d\n",threadsPerBlock.x,threadsPerBlock.y,threadsPerBlock.z);
 	
 				cudaEventRecord(start);
 	
-			    conv2_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_ofm_4, d_ofm_5, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
+			    conv3_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_ofm_4, d_ofm_5, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
 
 
 			    cudaEventRecord(stop);
@@ -612,7 +658,7 @@ int run ( int granularity){
 	
 			} 
 		}	// o/p id d_ofm_5
-		printf("Conv5 Done \n");
+		// printf("Conv5 Done \n");
 		// maxpooling 3
 		{
 			// i/p : 256x13x13 , filter : 3x3 , stride 2 , o/p : 265x6x6
@@ -634,7 +680,8 @@ int run ( int granularity){
 	
      		int threadsPerBlock = (out_r*out_c - 1)/granularity + 1;
         	int blocksPerGrid = depth;
-		    printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
+		    printf("blocks per grid for maxpooling 3  = %d,%d,%d\n",blocksPerGrid,1,1);
+			printf("threadsPerBlock for maxpooling 3 = %d,%d,%d\n",threadsPerBlock,1,1);
 	
 
 			cudaEventRecord(start);
@@ -664,7 +711,7 @@ int run ( int granularity){
 		    }
 	
 		} // o/p of maxpooling is in d_out 
-		printf("maxpooling 3 done \n");
+		// printf("maxpooling 3 done \n");
 		// FC 6 
 		{
 			// if_vector : 256x6x6 matrix : 
@@ -710,18 +757,19 @@ int run ( int granularity){
 	        // Initialize the grid and block dimensions
 		    // Launch the Vector Add CUDA Kernel
 		    int numThreadsReq = (numCRows+nelem_per_thread-1)/nelem_per_thread;
-		    int threadsPerBlock = 256;
+		    int threadsPerBlock = (256+nelem_per_thread-1)/nelem_per_thread;
 		    int blocksPerGrid =(numThreadsReq + threadsPerBlock - 1) / threadsPerBlock;
-		    dim3 dimGrid(blocksPerGrid, 1, 1);//Number of Blocks required
-		    dim3 dimBlock(threadsPerBlock, 1, 1);//Number of threads in each block
+		    dim3 dimGrid_tmp(blocksPerGrid, 1, 1);//Number of Blocks required
+		    dim3 dimBlock_tmp(threadsPerBlock, 1, 1);//Number of threads in each block
 			
 		    // Shared memory for parameter vetor and bias values
-		    int totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
-		    printf("CUDA kernel launch with %d blocks of %d threads, and %d of shared Memory\n", blocksPerGrid, threadsPerBlock, totSharedMem);
+		    // int totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
+		    printf("blocks per grid for FC6 = %d,%d,%d\n",dimGrid_tmp.x,dimGrid_tmp.y,dimGrid_tmp.z);
+			printf("threadsPerBlock for FC6 = %d,%d,%d\n",dimBlock_tmp.x,dimBlock_tmp.y,dimBlock_tmp.z);
 	
 
 			cudaEventRecord(start);
-		    gen_matvec<<<dimGrid, dimBlock, totSharedMem>>>(matrix, d_out, out_1, deviceBias, numCRows, numAColumns, nelem_per_thread);
+		    gen_matvec_noshared<<<dimGrid_tmp, dimBlock_tmp>>>(matrix, d_out, out_1, deviceBias, numCRows, numAColumns, nelem_per_thread);
 
 		    cudaEventRecord(stop);
 		    cudaEventSynchronize(stop);
@@ -750,7 +798,7 @@ int run ( int granularity){
 	        }
 	
 		}	 // out is the output 
-		printf("FC6 done\n");
+		// printf("FC6 done\n");
 	
 		// FC7 
 		{
@@ -796,19 +844,20 @@ int run ( int granularity){
 	
 	        // Initialize the grid and block dimensions
 		    // Launch the Vector Add CUDA Kernel
-		    int numThreadsReq = (numCRows+nelem_per_thread-1)/nelem_per_thread;
-		    int threadsPerBlock = 256;
+		     int numThreadsReq = (numCRows+nelem_per_thread-1)/nelem_per_thread;
+		    int threadsPerBlock = (256+nelem_per_thread-1)/nelem_per_thread;
 		    int blocksPerGrid =(numThreadsReq + threadsPerBlock - 1) / threadsPerBlock;
-		    dim3 dimGrid(blocksPerGrid, 1, 1);//Number of Blocks required
-		    dim3 dimBlock(threadsPerBlock, 1, 1);//Number of threads in each block
+		    dim3 dimGrid_tmp(blocksPerGrid, 1, 1);//Number of Blocks required
+		    dim3 dimBlock_tmp(threadsPerBlock, 1, 1);//Number of threads in each block
 			
 		    // Shared memory for parameter vetor and bias values
-		    int totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
-		    printf("CUDA kernel launch with %d blocks of %d threads, and %d of shared Memory\n", blocksPerGrid, threadsPerBlock, totSharedMem);
+		    // int totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
+		    printf("blocks per grid for FC7 = %d,%d,%d\n",dimGrid_tmp.x,dimGrid_tmp.y,dimGrid_tmp.z);
+			printf("threadsPerBlock for FC7 = %d,%d,%d\n",dimBlock_tmp.x,dimBlock_tmp.y,dimBlock_tmp.z);
 
 		    cudaEventRecord(start);
 	
-		    gen_matvec<<<dimGrid, dimBlock, totSharedMem>>>(matrix, out_1, out_2, deviceBias, numCRows, numAColumns, nelem_per_thread);
+		    gen_matvec_noshared<<<dimGrid_tmp, dimBlock_tmp>>>(matrix, out_1, out_2, deviceBias, numCRows, numAColumns, nelem_per_thread);
 
 		    cudaEventRecord(stop);
 		    cudaEventSynchronize(stop);
@@ -837,7 +886,7 @@ int run ( int granularity){
 	        }
 	
 		}	 // out_2 is the output 
-		printf("FC7 done \n");
+		// printf("FC7 done \n");
 		// FC8
 		{
 			// ip matrix : 1000x4096 , output vector : 1000x1 
@@ -883,19 +932,20 @@ int run ( int granularity){
 	
 	        // Initialize the grid and block dimensions
 		    // Launch the Vector Add CUDA Kernel
-		    int numThreadsReq = (numCRows+nelem_per_thread-1)/nelem_per_thread;
-		    int threadsPerBlock = 256;
+		     int numThreadsReq = (numCRows+nelem_per_thread-1)/nelem_per_thread;
+		    int threadsPerBlock = (256+nelem_per_thread-1)/nelem_per_thread;
 		    int blocksPerGrid =(numThreadsReq + threadsPerBlock - 1) / threadsPerBlock;
-		    dim3 dimGrid(blocksPerGrid, 1, 1);//Number of Blocks required
-		    dim3 dimBlock(threadsPerBlock, 1, 1);//Number of threads in each block
+		    dim3 dimGrid_tmp(blocksPerGrid, 1, 1);//Number of Blocks required
+		    dim3 dimBlock_tmp(threadsPerBlock, 1, 1);//Number of threads in each block
 			
 		    // Shared memory for parameter vetor and bias values
-		    int totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
-		    printf("CUDA kernel launch with %d blocks of %d threads, and %d of shared Memory\n", blocksPerGrid, threadsPerBlock, totSharedMem);
+		    // int totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
+		    printf("blocks per grid for FC8 = %d,%d,%d\n",dimGrid_tmp.x,dimGrid_tmp.y,dimGrid_tmp.z);
+			printf("threadsPerBlock for FC8 = %d,%d,%d\n",dimBlock_tmp.x,dimBlock_tmp.y,dimBlock_tmp.z);
 	
 		    cudaEventRecord(start);
 
-		    gen_matvec<<<dimGrid, dimBlock, totSharedMem>>>(matrix, out_2, out_3, deviceBias, numCRows, numAColumns, nelem_per_thread);
+		    gen_matvec_noshared<<<dimGrid_tmp, dimBlock_tmp>>>(matrix, out_2, out_3, deviceBias, numCRows, numAColumns, nelem_per_thread);
 
 		    cudaEventRecord(stop);
 		    cudaEventSynchronize(stop);
@@ -931,9 +981,8 @@ int run ( int granularity){
 	
 		}	 // out_2 is the output 
 
-		printf("FC8 Done \n");
-		printf("conv2, shared_pool, gen_matvec\n");
-		printf("Done granularity : %d\n",granularity);
+		printf("conv3, shared_pool, gen_matvec_noshared\n");
+		printf("Done granularity : %d\n\n\n",granularity);
 
 		cudaEventDestroy(start);
 		cudaEventDestroy(stop);
@@ -941,20 +990,9 @@ int run ( int granularity){
 
 	    if (err != cudaSuccess)
 	    {
-	        fprintf(stderr, "Failed to deinitialize the device! error=%s\n", cudaGetErrorString(err));
+	       fprintf(stderr, "Failed to deinitialize the device! error=%s\n", cudaGetErrorString(err));
 	        exit(EXIT_FAILURE);
 	    }
-	    return 0;
-
-}
-
-int main(){
-	int granularity;
-	for(granularity =1; granularity <= 16; granularity++) {
-
-			int val = run(granularity);
-			printf("val : %d\n",val);
-		
 
 	}
 
