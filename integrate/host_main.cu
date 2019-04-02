@@ -8,19 +8,11 @@
 #include "headers.h"
 
 
-int main(){
-
-	cudaEvent_t start, stop;
-	cudaEventCreate(&start);
-	float delta = 0.0; //to measure time
-	cudaError_t err = cudaSuccess;
+int run ( int granularity){
 	std::string line;
 	std::ifstream in("alexnet.csv");
-
-	float *d_ofm, *d_out, *d_ofm_3, *d_ofm_4, *d_ofm_5, *out_1, *out_2, *out_3;
 	ConvLayer conv_1, conv2, conv3, conv4, conv5;
 	FCLayer fc6 , fc7, fc8;
-	int granularity = 1;
 	printf(" start \n");
 	while(getline(in, line)) {
 		std::stringstream lineStream(line);
@@ -40,7 +32,33 @@ int main(){
     	}
     }
     printf("load complete \n");
-	for(granularity =1; granularity <= 16; granularity++) {
+
+    cudaError_t err  = cudaDeviceReset();
+
+    if (err != cudaSuccess)
+    {
+        fprintf(stderr, "Failed to deinitialize the device! error=%s\n", cudaGetErrorString(err));
+        exit(EXIT_FAILURE);
+    }
+
+    float *d_ofm, *d_out, *d_ofm_3, *d_ofm_4, *d_ofm_5, *out_1, *out_2, *out_3;
+		cudaEvent_t start, stop;
+		err = cudaEventCreate(&start);
+		if (err != cudaSuccess)
+	    {
+	        fprintf(stderr, "Failed to init start (error code %s)!\n", cudaGetErrorString(err));
+	        exit(EXIT_FAILURE);
+	    }
+		err = cudaEventCreate(&stop);
+		if (err != cudaSuccess)
+	    {
+	        fprintf(stderr, "Failed to init stop (error code %s)!\n", cudaGetErrorString(err));
+	        exit(EXIT_FAILURE);
+	    }
+		float delta = 0.0; //to measure time
+
+
+
 		// Convolution layer 1
 		if(true){
 	
@@ -55,9 +73,7 @@ int main(){
 		   	int stride = 4;
 		   	int pad = 0;
 		   	int in_size = num_in_fm*in_fm_w*in_fm_h * sizeof(float);
-		   	printf("57\n");
 		   	float *h_ifm = (float*) malloc(in_size);
-		   	printf("59\n");
 		   	// random generation of the i/p image matrix 
 		   	for(int i=0;i< num_in_fm*in_fm_w*in_fm_h;i++){
 		   		h_ifm[i] = rand()/(float) RAND_MAX;
@@ -74,7 +90,6 @@ int main(){
 		        fprintf(stderr, "Failed to allocate device ifm (error code %s)!\n", cudaGetErrorString(err));
 		        exit(EXIT_FAILURE);
 		    }
-						printf("78\n");
 
 		    d_ofm = NULL;
 		    err = cudaMalloc((void **)&d_ofm, out_size);
@@ -83,7 +98,6 @@ int main(){
 		        fprintf(stderr, "Failed to allocate device ofm (error code %s)!\n", cudaGetErrorString(err));
 		        exit(EXIT_FAILURE);
 		    }
-						printf("87\n");
 
 		    float *d_mask = NULL;
 		    err = cudaMalloc((void **)&d_mask, total_mask_size);
@@ -92,7 +106,6 @@ int main(){
 		        fprintf(stderr, "Failed to allocate device mask (error code %s)!\n", cudaGetErrorString(err));
 		        exit(EXIT_FAILURE);
 		    }
-				printf("96\n");
 
 		    err = cudaMemcpy(d_ifm, h_ifm, in_size, cudaMemcpyHostToDevice);
 		    if (err != cudaSuccess)
@@ -100,24 +113,46 @@ int main(){
 		        fprintf(stderr, "Failed to copy matrix ifm from host to device (error code %s)!\n", cudaGetErrorString(err));
 		        exit(EXIT_FAILURE);
 		    }
-			printf("101\n");
-			float *h_mask = conv_1.weights;
-			err = cudaMemcpy(d_mask, h_mask, total_mask_size, cudaMemcpyHostToDevice);
+
+			err = cudaMemcpy(d_mask, conv_1.weights, total_mask_size, cudaMemcpyHostToDevice);
 		    if (err != cudaSuccess)
 		    {
 		        fprintf(stderr, "Failed to copy matrix mask from host to device (error code %s)!\n", cudaGetErrorString(err));
 		        exit(EXIT_FAILURE);
 		    }
 				printf("108\n");
-
-		
-		    dim3 blocksPerGrid(num_out_fm,1,1);
-		    dim3 threadsPerBlock(out_fm_w, ((out_fm_h + granularity - 1)/granularity) , 1);
+			dim3 blocksPerGrid(num_out_fm,1,1);
+ 
+		   	blocksPerGrid.x = 2;
+			blocksPerGrid.y = 2;
+			blocksPerGrid.z =  num_out_fm;
+		    dim3 threadsPerBlock(out_fm_w/2, (((out_fm_h+1)/2 + granularity -1)/granularity) , 1);
+		    printf("blocks per grid for Conv1 = %d,%d,%d\n",blocksPerGrid.x,blocksPerGrid.y,blocksPerGrid.z);
 			printf("threadsPerBlock for Conv1 = %d,%d,%d\n",threadsPerBlock.x,threadsPerBlock.y,threadsPerBlock.z);
 	
-			cudaEventRecord(start);
+			err = cudaEventRecord(start);
+	
+		    if (err != cudaSuccess)
+		    {
+		        fprintf(stderr, "Failed to launch start 137(error code %s)!\n", cudaGetErrorString(err));
+		        exit(EXIT_FAILURE);
+		    }
 	
 		    conv1_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_ifm, d_ofm, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
+
+		    err = cudaGetLastError();
+	
+		    if (err != cudaSuccess)
+		    {
+		        fprintf(stderr, "Failed to launch conv1 kernel (error code %s)!\n", cudaGetErrorString(err));
+		        exit(EXIT_FAILURE);
+		    }
+
+		    cudaEventRecord(stop);
+		    cudaEventSynchronize(stop);
+			delta = 0.0;
+			cudaEventElapsedTime(&delta, start, stop);
+			printf("Conv1 Layer 1 , granularity = %d, time in milliseconds = %f\n",granularity,delta);
 	    	
 		    // d_ofm will now be used for the further layers 
 		    err = cudaFree(d_ifm);
@@ -135,12 +170,12 @@ int main(){
 	
 		    // Free host memory
 		    free(h_ifm);
-		    free(h_mask);
-	
+			
 		}
 		printf("conv1 done \n");
 		// maxpooling 1 
 		{
+			
 			// i/p : 96x55x55 , filter : 3x3 , stride 2 , o/p : 96x27x27
 			int inp_r=55,  inp_c=55,  depth=96,  filter_width=3,  stride=2,  out_r=27,  out_c=27;
 		    int numElements = inp_r*inp_c*depth;
@@ -159,20 +194,39 @@ int main(){
 		    }
 	
 		    
-        	 dim3 blocksPerGrid(depth,1,1);
+        	dim3 blocksPerGrid(depth,1,1);
 		    dim3 threadsPerBlock((out_r*out_c - 1)/granularity + 1,1 , 1);
 		    printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid.x, threadsPerBlock.x);
 	
+			err = cudaEventRecord(start);
+			if (err != cudaSuccess)
+		    {
+		        fprintf(stderr, "Failed to start 186(error code %s)!\n", cudaGetErrorString(err));
+		        exit(EXIT_FAILURE);
+		    }
 		    // d_ofm is the o/p from the layer, will be the i/p of this 
 		    shared_pool<<<blocksPerGrid, threadsPerBlock>>>(d_ofm, d_out, inp_r, inp_c, depth, filter_width, stride, out_r, out_c, granularity);
+
 		    err = cudaGetLastError();
 	
 		    if (err != cudaSuccess)
 		    {
-		        fprintf(stderr, "Failed to launch vectorAdd kernel (error code %s)!\n", cudaGetErrorString(err));
+		        fprintf(stderr, "Failed to launch shared_pool kernel (error code %s)!\n", cudaGetErrorString(err));
 		        exit(EXIT_FAILURE);
 		    }
 	
+		    cudaEventRecord(stop);
+		    err = cudaEventSynchronize(stop);
+		    if (err != cudaSuccess)
+		    {
+		        fprintf(stderr, "Failed to cudaEventSynchronize (error code %s)!\n", cudaGetErrorString(err));
+		        exit(EXIT_FAILURE);
+		    }
+			delta = 0;
+			cudaEventElapsedTime(&delta, start, stop);
+			printf("Maxpooling 1 granularity = %d, time in milliseconds = %f\n",granularity,delta);
+
+		    
 		    // Free device global memory , d_ofm is the o/p of the Conv1 , not needed amymore 
 		    err = cudaFree(d_ofm);
 	
@@ -181,6 +235,8 @@ int main(){
 		        fprintf(stderr, "Failed to free device vector A (error code %s)!\n", cudaGetErrorString(err));
 		        exit(EXIT_FAILURE);
 		    }
+
+	
 	
 		} // o/p of maxpooling is in d_out 
 		printf("maxpooling 1 Done. \n");
@@ -189,6 +245,8 @@ int main(){
 			if(true){
 	
 				// i/p : 96x27x27, o/p : 256x27x27, filter : 5x5x256x48 , padding : 2 
+
+				
 				int num_in_fm = 48;
 			   	int in_fm_h = 27;
 			   	int in_fm_w = 27;
@@ -202,7 +260,6 @@ int main(){
 	
 			   	int out_size = num_out_fm*out_fm_w*out_fm_w * sizeof(float);
 			   	int total_mask_size = num_out_fm*num_in_fm*mask_size*mask_size*sizeof(float);
-			   	float *h_mask = conv2.weights;
 			   	printf(" In conv 2 \n");
 				printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv2.filter_size,conv2.num_layers,conv2.depth);
 	
@@ -223,7 +280,7 @@ int main(){
 			        exit(EXIT_FAILURE);
 			    }
 	
-				err = cudaMemcpy(d_mask, h_mask, total_mask_size, cudaMemcpyHostToDevice);
+				err = cudaMemcpy(d_mask, conv2.weights, total_mask_size, cudaMemcpyHostToDevice);
 			    if (err != cudaSuccess)
 			    {
 			        fprintf(stderr, "Failed to copy matrix mask from host to device (error code %s)!\n", cudaGetErrorString(err));
@@ -238,6 +295,12 @@ int main(){
 				cudaEventRecord(start);
 	
 			    conv2_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_out, d_ofm, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
+
+			    cudaEventRecord(stop);
+			    cudaEventSynchronize(stop);
+				delta = 0;
+				cudaEventElapsedTime(&delta, start, stop);
+				printf("Conv2  granularity = %d, time in milliseconds = %f\n",granularity,delta);
 		    	
 			    // d_ofm will now be used for the further layers 
 			    err = cudaFree(d_out);
@@ -252,9 +315,7 @@ int main(){
 			        fprintf(stderr, "Failed to free device matrix mask (error code %s)!\n", cudaGetErrorString(err));
 			        exit(EXIT_FAILURE);
 			    }
-	
-			    // Free host memory
-			    free(h_mask);
+			   
 	
 			} 
 		}	// o/p is d_ofm 
@@ -282,6 +343,7 @@ int main(){
         	int blocksPerGrid = depth;
 		    printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
 	
+			cudaEventRecord(start);
 		    // d_ofm is the o/p from the layer, will be the i/p of this 
 		    shared_pool<<<blocksPerGrid, threadsPerBlock>>>(d_ofm, d_out, inp_r, inp_c, depth, filter_width, stride, out_r, out_c, granularity);
 		    err = cudaGetLastError();
@@ -291,6 +353,12 @@ int main(){
 		        fprintf(stderr, "Failed to launch vectorAdd kernel (error code %s)!\n", cudaGetErrorString(err));
 		        exit(EXIT_FAILURE);
 		    }
+
+		    cudaEventRecord(stop);
+		    cudaEventSynchronize(stop);
+			delta = 0;
+			cudaEventElapsedTime(&delta, start, stop);
+			printf("Maxpooling 2 granularity = %d, time in milliseconds = %f\n",granularity,delta);
 	
 		    // Free device global memory , d_ofm is the o/p of the Conv1 , not needed amymore 
 		    err = cudaFree(d_ofm);
@@ -322,7 +390,7 @@ int main(){
 	
 			   	int out_size = num_out_fm*out_fm_w*out_fm_w * sizeof(float);
 			   	int total_mask_size = num_out_fm*num_in_fm*mask_size*mask_size*sizeof(float);
-			   	float *h_mask = conv3.weights;
+			   	
 				printf(" In conv 3 \n");
 				printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv3.filter_size,conv3.num_layers,conv3.depth);
 	
@@ -342,7 +410,7 @@ int main(){
 			        exit(EXIT_FAILURE);
 			    }
 	
-				err = cudaMemcpy(d_mask, h_mask, total_mask_size, cudaMemcpyHostToDevice);
+				err = cudaMemcpy(d_mask, conv3.weights, total_mask_size, cudaMemcpyHostToDevice);
 			    if (err != cudaSuccess)
 			    {
 			        fprintf(stderr, "Failed to copy matrix mask from host to device (error code %s)!\n", cudaGetErrorString(err));
@@ -358,6 +426,12 @@ int main(){
 	
 			    conv2_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_out, d_ofm_3, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
 		    	
+
+		    	cudaEventRecord(stop);
+			    cudaEventSynchronize(stop);
+				delta = 0;
+				cudaEventElapsedTime(&delta, start, stop);
+				printf("Conv3  granularity = %d, time in milliseconds = %f\n",granularity,delta);
 			    // d_ofm will now be used for the further layers 
 			    err = cudaFree(d_out);
 			    if (err != cudaSuccess)
@@ -371,9 +445,6 @@ int main(){
 			        fprintf(stderr, "Failed to free device matrix mask (error code %s)!\n", cudaGetErrorString(err));
 			        exit(EXIT_FAILURE);
 			    }
-	
-			    // Free host memory
-			    free(h_mask);
 	
 			} 
 		}	// o/p is d_ofm_3 
@@ -399,7 +470,7 @@ int main(){
 	
 			   	int out_size = num_out_fm*out_fm_w*out_fm_w * sizeof(float);
 			   	int total_mask_size = num_out_fm*num_in_fm*mask_size*mask_size*sizeof(float);
-			   	float *h_mask = c.weights;
+			
 				printf(" In conv 4 \n");
 				printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv4.filter_size,conv4.num_layers,conv4.depth);
 		
@@ -419,7 +490,7 @@ int main(){
 			        exit(EXIT_FAILURE);
 			    }
 	
-				err = cudaMemcpy(d_mask, h_mask, total_mask_size, cudaMemcpyHostToDevice);
+				err = cudaMemcpy(d_mask, c.weights, total_mask_size, cudaMemcpyHostToDevice);
 			    if (err != cudaSuccess)
 			    {
 			        fprintf(stderr, "Failed to copy matrix mask from host to device (error code %s)!\n", cudaGetErrorString(err));
@@ -434,6 +505,13 @@ int main(){
 				cudaEventRecord(start);
 	
 			    conv2_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_ofm_3, d_ofm_4, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
+
+
+			    cudaEventRecord(stop);
+			    cudaEventSynchronize(stop);
+				delta = 0;
+				cudaEventElapsedTime(&delta, start, stop);
+				printf("Conv4 granularity = %d, time in milliseconds = %f\n",granularity,delta);
 		    	
 			    // d_ofm will now be used for the further layers 
 			    err = cudaFree(d_ofm_3);
@@ -449,8 +527,6 @@ int main(){
 			        exit(EXIT_FAILURE);
 			    }
 	
-			    // Free host memory
-			    free(h_mask);
 	
 			} 
 		}	// o/p is d_ofm_4 
@@ -460,7 +536,7 @@ int main(){
 			 
 			getline(in, line);
 			std::stringstream lineStream(line);
-			if(line[0] == 'c'){
+			if(true){
 				ConvLayer c = processConv(lineStream);
 	
 				// i/p : 384x13x13, o/p : 256x13x13, filter : 3x3x256x192 , padding : 1 
@@ -477,8 +553,7 @@ int main(){
 	
 			   	int out_size = num_out_fm*out_fm_w*out_fm_w * sizeof(float);
 			   	int total_mask_size = num_out_fm*num_in_fm*mask_size*mask_size*sizeof(float);
-			   	float *h_mask = conv5.weights;
-			   	float *test_ofm = (float *) malloc(out_size);
+	
 				printf(" In conv 5 \n");
 				printf(" filter_size : %d , num_layers : %d, depth : %d \n",conv5.filter_size,conv5.num_layers,conv5.depth);
 	
@@ -498,7 +573,7 @@ int main(){
 			        exit(EXIT_FAILURE);
 			    }
 	
-				err = cudaMemcpy(d_mask, h_mask, total_mask_size, cudaMemcpyHostToDevice);
+				err = cudaMemcpy(d_mask, conv5.weights, total_mask_size, cudaMemcpyHostToDevice);
 			    if (err != cudaSuccess)
 			    {
 			        fprintf(stderr, "Failed to copy matrix mask from host to device (error code %s)!\n", cudaGetErrorString(err));
@@ -513,7 +588,14 @@ int main(){
 				cudaEventRecord(start);
 	
 			    conv2_kernel<<<blocksPerGrid, threadsPerBlock>>>(d_ofm_4, d_ofm_5, d_mask, in_fm_h, in_fm_w, num_in_fm, out_fm_h, out_fm_w, num_out_fm, mask_size, pad, stride, granularity);
-		    	
+
+
+			    cudaEventRecord(stop);
+			    cudaEventSynchronize(stop);
+				delta = 0;
+				cudaEventElapsedTime(&delta, start, stop);
+				printf("conv5 granularity = %d, time in milliseconds = %f\n",granularity,delta);
+			    	
 			    // d_ofm will now be used for the further layers 
 			    err = cudaFree(d_ofm_4);
 			    if (err != cudaSuccess)
@@ -527,9 +609,6 @@ int main(){
 			        fprintf(stderr, "Failed to free device matrix mask (error code %s)!\n", cudaGetErrorString(err));
 			        exit(EXIT_FAILURE);
 			    }
-	
-			    // Free host memory
-			    free(h_mask);
 	
 			} 
 		}	// o/p id d_ofm_5
@@ -557,22 +636,30 @@ int main(){
         	int blocksPerGrid = depth;
 		    printf("CUDA kernel launch with %d blocks of %d threads\n", blocksPerGrid, threadsPerBlock);
 	
+
+			cudaEventRecord(start);
 		    // d_ofm is the o/p from the layer, will be the i/p of this 
 		    shared_pool<<<blocksPerGrid, threadsPerBlock>>>(d_ofm_5, d_out, inp_r, inp_c, depth, filter_width, stride, out_r, out_c, granularity);
 		    err = cudaGetLastError();
-	
 		    if (err != cudaSuccess)
 		    {
 		        fprintf(stderr, "Failed to launch vectorAdd kernel (error code %s)!\n", cudaGetErrorString(err));
 		        exit(EXIT_FAILURE);
 		    }
+
+		    cudaEventRecord(stop);
+		    cudaEventSynchronize(stop);
+			delta = 0;
+			cudaEventElapsedTime(&delta, start, stop);
+			printf("Maxpooling 3 granularity = %d, time in milliseconds = %f\n",granularity,delta);
+	
 	
 		    // Free device global memory , d_ofm is the o/p of the Conv1 , not needed amymore 
-		    err = cudaFree(d_ofm);
+		    err = cudaFree(d_ofm_5);
 	
 		    if (err != cudaSuccess)
 		    {
-		        fprintf(stderr, "Failed to free device vector A (error code %s)!\n", cudaGetErrorString(err));
+		        fprintf(stderr, "Failed to free device vector d_ofm_5 (error code %s)!\n", cudaGetErrorString(err));
 		        exit(EXIT_FAILURE);
 		    }
 	
@@ -632,7 +719,15 @@ int main(){
 		    int totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
 		    printf("CUDA kernel launch with %d blocks of %d threads, and %d of shared Memory\n", blocksPerGrid, threadsPerBlock, totSharedMem);
 	
+
+			cudaEventRecord(start);
 		    gen_matvec<<<dimGrid, dimBlock, totSharedMem>>>(matrix, d_out, out_1, deviceBias, numCRows, numAColumns, nelem_per_thread);
+
+		    cudaEventRecord(stop);
+		    cudaEventSynchronize(stop);
+			delta = 0;
+			cudaEventElapsedTime(&delta, start, stop);
+			printf("FC6 granularity = %d, time in milliseconds = %f\n",granularity,delta);
 	
 		    cudaError_t err1 = cudaPeekAtLastError();//To capture last error in function call
 	
@@ -643,6 +738,12 @@ int main(){
 	        }
 	
 	        err = cudaFree(d_out);
+	        if (err != cudaSuccess) {
+	            printf( "Failed to run stmt %d ", __LINE__);
+	            return -1;
+	        }
+
+	        err = cudaFree(deviceBias);
 	        if (err != cudaSuccess) {
 	            printf( "Failed to run stmt %d ", __LINE__);
 	            return -1;
@@ -704,8 +805,16 @@ int main(){
 		    // Shared memory for parameter vetor and bias values
 		    int totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
 		    printf("CUDA kernel launch with %d blocks of %d threads, and %d of shared Memory\n", blocksPerGrid, threadsPerBlock, totSharedMem);
+
+		    cudaEventRecord(start);
 	
 		    gen_matvec<<<dimGrid, dimBlock, totSharedMem>>>(matrix, out_1, out_2, deviceBias, numCRows, numAColumns, nelem_per_thread);
+
+		    cudaEventRecord(stop);
+		    cudaEventSynchronize(stop);
+			delta = 0;
+			cudaEventElapsedTime(&delta, start, stop);
+			printf("FC7 granularity = %d, time in milliseconds = %f\n",granularity,delta);
 	
 		    cudaError_t err1 = cudaPeekAtLastError();//To capture last error in function call
 	
@@ -716,6 +825,12 @@ int main(){
 	        }
 	
 	        err = cudaFree(out_1);
+	        if (err != cudaSuccess) {
+	            printf( "Failed to run stmt %d ", __LINE__);
+	            return -1;
+	        }
+
+	        err = cudaFree(deviceBias);
 	        if (err != cudaSuccess) {
 	            printf( "Failed to run stmt %d ", __LINE__);
 	            return -1;
@@ -778,7 +893,15 @@ int main(){
 		    int totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
 		    printf("CUDA kernel launch with %d blocks of %d threads, and %d of shared Memory\n", blocksPerGrid, threadsPerBlock, totSharedMem);
 	
+		    cudaEventRecord(start);
+
 		    gen_matvec<<<dimGrid, dimBlock, totSharedMem>>>(matrix, out_2, out_3, deviceBias, numCRows, numAColumns, nelem_per_thread);
+
+		    cudaEventRecord(stop);
+		    cudaEventSynchronize(stop);
+			delta = 0;
+			cudaEventElapsedTime(&delta, start, stop);
+			printf("FC8 granularity = %d, time in milliseconds = %f\n",granularity,delta);
 	
 		    cudaError_t err1 = cudaPeekAtLastError();//To capture last error in function call
 	
@@ -793,16 +916,46 @@ int main(){
 	            printf( "Failed to run stmt %d ", __LINE__);
 	            return -1;
 	        }
+
+	        err = cudaFree(deviceBias);
+	        if (err != cudaSuccess) {
+	            printf( "Failed to run stmt %d ", __LINE__);
+	            return -1;
+	        }
+
+	        err = cudaFree(out_3);
+	        if (err != cudaSuccess) {
+	            printf( "Failed to run stmt %d ", __LINE__);
+	            return -1;
+	        }
 	
 		}	 // out_2 is the output 
 
 		printf("FC8 Done \n");
-		cudaEventRecord(stop);
-	    cudaEventSynchronize(stop);
-		delta = 0;
-		cudaEventElapsedTime(&delta, start, stop);
 		printf("conv2, shared_pool, gen_matvec\n");
-		printf("granularity = %d, time in milliseconds = %f\n",granularity,delta);
+		printf("Done granularity : %d\n",granularity);
+
+		cudaEventDestroy(start);
+		cudaEventDestroy(stop);
+		err = cudaDeviceReset();
+
+	    if (err != cudaSuccess)
+	    {
+	        fprintf(stderr, "Failed to deinitialize the device! error=%s\n", cudaGetErrorString(err));
+	        exit(EXIT_FAILURE);
+	    }
+	    return 0;
+
+}
+
+int main(){
+	int granularity;
+	for(granularity =1; granularity <= 16; granularity++) {
+
+			int val = run(granularity);
+			printf("val : %d\n",val);
+		
+
 	}
 
 
@@ -814,15 +967,6 @@ int main(){
     // needed to ensure correct operation when the application is being
     // profiled. Calling cudaDeviceReset causes all profile data to be
     // flushed before the application exits
-    err = cudaDeviceReset();
-
-    if (err != cudaSuccess)
-    {
-        fprintf(stderr, "Failed to deinitialize the device! error=%s\n", cudaGetErrorString(err));
-        exit(EXIT_FAILURE);
-    }
-
-    printf("Done\n");
     return 0;
 
 
