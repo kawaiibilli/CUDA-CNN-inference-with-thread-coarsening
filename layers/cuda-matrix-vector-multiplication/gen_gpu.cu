@@ -1,23 +1,17 @@
 #include "gen_gpu.h"
 
-// ******************** General Mat-Mat Functions ******************
+// ******************** General Mat-Vec Functions ******************
 
+
+//   y = Ax+B
 __global__ void gen_matvec(float *A, float *x, float *y, float *B, const int m, const int n, const int nelem_per_thread) 
 {
 	// Global and block wise thread index
 	unsigned int xIndex = blockDim.x * blockIdx.x + threadIdx.x, tId = threadIdx.x;
-	// No of rows in the shared memory
-	/*unsigned int smem_rows = blockDim.x * (blockIdx.x+1) * nelem_per_thread;
-	if(smem_rows>=m) smem_rows = m-1;
-	smem_rows = smem_rows - (blockIdx.x * blockDim.x * nelem_per_thread) + 1;
 	
-	unsigned int totElems = smem_rows * n, prevIndx = blockIdx.x * blockDim.x * nelem_per_thread * n;
-	
-	// Shared memory used combined with global memory coalescing
-	*/
 	extern __shared__ float s[];
 
-	//float *As = &s[2*n];
+	
 	float *Xs = s;
 	float *Bs = (s+n);
 
@@ -30,10 +24,6 @@ __global__ void gen_matvec(float *A, float *x, float *y, float *B, const int m, 
 	for(int i = tId; i < m; i += blockDim.x ) {
 		Bs[i] = B[i];
 	}
-
-	/*for(int i = tId; i < totElems; i += blockDim.x ) {
-		As[i] = A[prevIndx + i];
-	} */
 
 	__syncthreads();
 
@@ -50,20 +40,11 @@ __global__ void gen_matvec(float *A, float *x, float *y, float *B, const int m, 
 
 
 
+//   y = Ax+B
 __global__ void gen_matvec_noshared(float *A, float *x, float *y, float *B, const int m, const int n, const int nelem_per_thread) 
 {
 	// Global and block wise thread index
-	unsigned int xIndex = blockDim.x * blockIdx.x + threadIdx.x;
-	// No of rows in the shared memory
-	/*unsigned int smem_rows = blockDim.x * (blockIdx.x+1) * nelem_per_thread;
-	if(smem_rows>=m) smem_rows = m-1;
-	smem_rows = smem_rows - (blockIdx.x * blockDim.x * nelem_per_thread) + 1;
-	
-	unsigned int totElems = smem_rows * n, prevIndx = blockIdx.x * blockDim.x * nelem_per_thread * n;
-	
-	// Shared memory used combined with global memory coalescing
-	*/
-	
+	unsigned int xIndex = blockDim.x * blockIdx.x + threadIdx.x;	
 
 	for(int j = 0;j<nelem_per_thread;++j){
 		if(xIndex*nelem_per_thread+j >= m) break;
@@ -74,3 +55,53 @@ __global__ void gen_matvec_noshared(float *A, float *x, float *y, float *B, cons
 		y[xIndex*nelem_per_thread+j] = c + B[xIndex*nelem_per_thread+j];
 	}
 }
+
+
+
+//   y = Ax+B
+__global__ void gen_matvec_nocoarse(float *A, float *x, float *y, float *B, const int m, const int n) 
+{
+	// Global and block wise thread index
+	unsigned int xIndex = blockDim.x * blockIdx.x + threadIdx.x, tId = threadIdx.x;
+	
+	extern __shared__ float s[];
+
+	
+	float *Xs = s;
+	float *Bs = (s+n);
+
+	// Filling the shared memory in a way to use memory coalescing
+	for(int i = tId; i < n; i += blockDim.x ) {
+		Xs[i] = x[i];
+	}
+
+	// Filling the shared memory in a way to use memory coalescing
+	for(int i = tId; i < m; i += blockDim.x ) {
+		Bs[i] = B[i];
+	}
+
+	__syncthreads();
+
+	if(xIndex < m) {
+		float c = 0.0f;
+		for(int i=0; i<n; i++)
+			c = c + Xs[i] * A[ n * (xIndex) +i];
+		y[xIndex] = c + Bs[xIndex];
+	}
+}
+
+
+//   y = Ax+B
+__global__ void gen_matvec_nocoarse_noshared(float *A, float *x, float *y, float *B, const int m, const int n) 
+{
+	// Global and block wise thread index
+	unsigned int xIndex = blockDim.x * blockIdx.x + threadIdx.x;
+	
+	if(xIndex < m){
+		float c = 0.0f;
+		for(int i=0; i<n; i++)
+			c = c + x[i] * A[ n * (xIndex) +i];
+		y[xIndex] = c + B[xIndex];
+	}
+}
+
