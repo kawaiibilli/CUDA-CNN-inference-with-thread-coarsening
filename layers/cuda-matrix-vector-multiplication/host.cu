@@ -13,16 +13,26 @@ int funcCheck(cudaError_t stmt){
     return 0;
 }
 
-int numARows;   // number of rows in the matrix A
-int numAColumns;  // number of columns in the matrix A
-int numBRows;   // number of rows in the matrix B
-int numBColumns=1;  // number of columns in the matrix B
-int numCRows;  // number of rows in the matrix C (you have to set this)
-int numCColumns=1; // number of columns in the matrix C (you have to set this)
-int nelem_per_thread; // THread coarsening factor
+ // number of rows in the matrix A
+int numARows;  
+// number of columns in the matrix A
+int numAColumns;  
+// number of rows in the vector B
+int numBRows;   
+// number of columns in the vector B
+int numBColumns=1;  
+// number of rows in the vector C 
+int numCRows;  
+// number of columns in the vector C 
+int numCColumns=1; 
+// THread coarsening factor
+int nelem_per_thread; 
 
-//*************************************************************
-void Print_Mat(int Row,int Col,float *Mat)//Function To print the Matrix
+
+
+
+//Function To print the Matrix
+void Print_Mat(int Row,int Col,float *Mat)
 {
  int tot = Row*Col;
  for(int i=0;i<tot;i++)
@@ -36,9 +46,8 @@ void Print_Mat(int Row,int Col,float *Mat)//Function To print the Matrix
    }
 }
 
-//Function close
-//*************************************************************
-//Normal CPU Matrix Multiplication
+
+//Normal CPU Matrix Vector Multiplication
 void matMultiplyAddOnHost(float * A, float * B, float * C, float *bias, int numARows,
                         int numAColumns, int numBRows, int numBColumns,
                         int numCRows, int numCColumns)
@@ -56,55 +65,59 @@ void matMultiplyAddOnHost(float * A, float * B, float * C, float *bias, int numA
         }
     }
 }
-//*************************************************************
+
+
+
 int main(int argc, char ** argv) {
+
+    ////////////////////////////////////////////////INITIALIZING HOST AND DEVICE MEMORIES/////////////////////////////////////////
     float * hostA; // The A matrix
-    float * hostB; // The B matrix
-    float * hostC; // The output C matrix
+    float * hostB; // The B vector
+    float * hostC; // The output C vector
     float * hostBias; // The Bias Matrix
     float * hostComputedC;
     float * deviceA;
     float * deviceB;
     float * deviceC;
     float * deviceBias;
-
+    /////////////////////////////////////////////////// C = A B + Bias ///////////////////////////////////////////////////////
 
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
-    float delta = 0.0; //to measure time
+    //to measure time
+    float delta = 0.0; 
     
     // //fc7 dimensions:
     // numARows = 4096;
     // numAColumns = 256*6*6;
     // numBRows = numAColumns;
-    // nelem_per_thread = 4;
+    // nelem_per_thread = 1;
 
     // //fc8 dimensions:
     // numARows = 4096;
     // numAColumns = 4096;
     // numBRows = numAColumns;
-    // nelem_per_thread = 4;	
+    // nelem_per_thread = 1;	
 
     //fc9 dimensions:
     numARows = 4096;
     numAColumns = 1000;
     numBRows = numAColumns;
-    nelem_per_thread = 4;
+    nelem_per_thread = 1;
 
-    // printf("\nPlease Enter Rows of B:");
-    // scanf("%d %d",&numBRows);
+    
 
     hostA = (float *) malloc(sizeof(float)*numARows*numAColumns);
     hostB = (float *) malloc(sizeof(float)*numBRows*numBColumns);
 
-    for (int i = 0; i < numARows*numAColumns; i++)//Matrix Initialization
+    for (int i = 0; i < numARows*numAColumns; i++)
     {
-        hostA[i]=1.0;
+        hostA[i]=rand()/(float) RAND_MAX;
     }
     for (int i = 0; i < numBRows*numBColumns; i++)
     {
-        hostB[i]=1.0;
+        hostB[i]=rand()/(float) RAND_MAX;
     }
 
     // Setting numCRows and numCColumns
@@ -117,7 +130,7 @@ int main(int argc, char ** argv) {
 
     for (int i = 0; i < numCRows*numCColumns; i++)
     {
-        hostBias[i]=1.0;
+        hostBias[i]=rand()/(float) RAND_MAX;
     }
 
     // Allocating GPU memory
@@ -137,15 +150,56 @@ int main(int argc, char ** argv) {
     int numThreadsReq = (numCRows+nelem_per_thread-1)/nelem_per_thread;
     int threadsPerBlock = (256+nelem_per_thread-1)/nelem_per_thread;
     int blocksPerGrid =(numThreadsReq + threadsPerBlock - 1) / threadsPerBlock;
-    dim3 dimGrid(blocksPerGrid, 1, 1);//Number of Blocks required
-    dim3 dimBlock(threadsPerBlock, 1, 1);//Number of threads in each block
+    //Number of Blocks required
+    dim3 dimGrid(blocksPerGrid, 1, 1);
+    //Number of threads in each block
+    dim3 dimBlock(threadsPerBlock, 1, 1);
     
     // Shared memory for parameter vetor and bias values
-    int totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
-    //int totSharedMem = (threadsPerBlock * nelem_per_thread * numAColumns + numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
-    gen_matvec<<<dimGrid, dimBlock, totSharedMem>>>(deviceA, deviceB, deviceC, deviceBias, numCRows, numAColumns, nelem_per_thread);
-    // float *A, float *x, float *y, const int m, const int n
-    //@@ Launch the GPU Kernel here
+    int totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float);
+
+    //-----------------------------------------------------------------------------------------------------------------------------
+    //////////////////////////////////////////TESTING NON THREAD COARSENING CODES///////////////////////////////////////////////////////////////
+    
+    //WITH SHARED MEMORY
+    gen_matvec_nocoarse<<<dimGrid, dimBlock, totSharedMem>>>(deviceA, deviceB, deviceC, deviceBias, numCRows, numAColumns);
+
+    //VERIFYING RESULT
+    // Copy the results in GPU memory back to the CPU
+    funcCheck(cudaMemcpy(hostC, deviceC, sizeof(float)*numCRows*numCColumns, cudaMemcpyDeviceToHost));
+
+    matMultiplyAddOnHost(hostA, hostB, hostComputedC, hostBias, numARows, numAColumns, numBRows, numBColumns, numCRows, numCColumns);
+    for (int i=0; i < numCColumns*numCRows; i++)
+    {
+        if (abs(hostComputedC[i] - hostC[i]) > 1e-4 )
+        {
+            printf("Mismatch at Row = %d Col = %d hostComputed[] = %f --device[] %f\n", i / numCColumns, i % numCColumns, hostComputedC[i], hostC[i]);
+            exit(1);
+            
+        }
+    }
+
+
+    ////WITHOUT SHARED MEMORY
+    gen_matvec_nocoarse_noshared<<<dimGrid, dimBlock, totSharedMem>>>(deviceA, deviceB, deviceC, deviceBias, numCRows, numAColumns);
+
+    //VERIFYING THE RESULT
+    // Copy the results in GPU memory back to the CPU
+    funcCheck(cudaMemcpy(hostC, deviceC, sizeof(float)*numCRows*numCColumns, cudaMemcpyDeviceToHost));
+    matMultiplyAddOnHost(hostA, hostB, hostComputedC, hostBias, numARows, numAColumns, numBRows, numBColumns, numCRows, numCColumns);
+    for (int i=0; i < numCColumns*numCRows; i++)
+    {
+        if (abs(hostComputedC[i] - hostC[i]) > 1e-4 )
+        {
+            printf("Mismatch at Row = %d Col = %d hostComputed[] = %f --device[] %f\n", i / numCColumns, i % numCColumns, hostComputedC[i], hostC[i]);
+            exit(1);
+            
+        }
+    }
+
+    //-------------------------------------------------------------------------------------------------------------------------------
+    //////////////////////////////////////////////// TESTING THREAD COARSENING CODES /////////////////////////////////////////////////
+
 
     double avgtime[33];
     memset(avgtime,0.0,sizeof(double)*33);
@@ -160,16 +214,18 @@ int main(int argc, char ** argv) {
 		    numThreadsReq = (numCRows+nelem_per_thread-1)/nelem_per_thread;
 		    threadsPerBlock = (256+nelem_per_thread-1)/nelem_per_thread;
 		    blocksPerGrid =(numThreadsReq + threadsPerBlock - 1) / threadsPerBlock;
-		    dim3 dimGrid_tmp(blocksPerGrid, 1, 1);//Number of Blocks required
-		    dim3 dimBlock_tmp(threadsPerBlock, 1, 1);//Number of threads in each block
+            //Number of Blocks required
+		    dim3 dimGrid_tmp(blocksPerGrid, 1, 1);
+            //Number of threads in each block
+		    dim3 dimBlock_tmp(threadsPerBlock, 1, 1);
 		    
 		    // Shared memory for parameter vetor and bias values
 		    totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
 
 		    printf("CUDA kernel launch with %d blocks of %d threads, and %d of shared Memory\n", blocksPerGrid, threadsPerBlock, totSharedMem);
 
+            //WITH SHARED MEMORY
 		    cudaEventRecord(start);
-
 		    gen_matvec<<<dimGrid_tmp, dimBlock_tmp, totSharedMem>>>(deviceA, deviceB, deviceC, deviceBias, numCRows, numAColumns, nelem_per_thread);
 		    cudaEventRecord(stop);
             cudaEventSynchronize(stop);
@@ -179,6 +235,21 @@ int main(int argc, char ** argv) {
 		    avgtime[nelem_per_thread]+=time_taken;
 		    printf("Time taken is - %lf milliseconds\n ", time_taken);
 
+            //VERIFYING THE RESULT
+            // Copy the results in GPU memory back to the CPU
+            funcCheck(cudaMemcpy(hostC, deviceC, sizeof(float)*numCRows*numCColumns, cudaMemcpyDeviceToHost));
+            matMultiplyAddOnHost(hostA, hostB, hostComputedC, hostBias, numARows, numAColumns, numBRows, numBColumns, numCRows, numCColumns);
+            for (int i=0; i < numCColumns*numCRows; i++)
+            {
+                if (abs(hostComputedC[i] - hostC[i]) > 1e-4 )
+                {
+                    printf("Mismatch at Row = %d Col = %d hostComputed[] = %f --device[] %f\n", i / numCColumns, i % numCColumns, hostComputedC[i], hostC[i]);
+                    exit(1);
+                    
+                }
+            }
+
+            //WITHOUT SHARED MEMORY
 		    cudaEventRecord(start);
 		    gen_matvec_noshared<<<dimGrid_tmp, dimBlock_tmp>>>(deviceA, deviceB, deviceC, deviceBias, numCRows, numAColumns, nelem_per_thread);
 		    cudaEventRecord(stop);
@@ -188,54 +259,43 @@ int main(int argc, char ** argv) {
             time_taken = delta;
 		    avgtime_shared[nelem_per_thread]+=time_taken;
 		    printf("Time taken is - %lf milliseconds\n ", time_taken);
-		    cudaError_t err1 = cudaPeekAtLastError();//To capture last error in function call
+
+            //VERIFYING THE RESULT
+            // Copy the results in GPU memory back to the CPU
+            funcCheck(cudaMemcpy(hostC, deviceC, sizeof(float)*numCRows*numCColumns, cudaMemcpyDeviceToHost));
+            matMultiplyAddOnHost(hostA, hostB, hostComputedC, hostBias, numARows, numAColumns, numBRows, numBColumns, numCRows, numCColumns);
+            for (int i=0; i < numCColumns*numCRows; i++)
+            {
+                if (abs(hostComputedC[i] - hostC[i]) > 1e-4 )
+                {
+                    printf("Mismatch at Row = %d Col = %d hostComputed[] = %f --device[] %f\n", i / numCColumns, i % numCColumns, hostComputedC[i], hostC[i]);
+                    exit(1);
+                    
+                }
+            }
+
+
 	    }
+
 	}
+    //---------------------------------------------------------------------------------------------------------------------------
+    //////////////////////////////////////////////// PRINTING AND FREEING MEMORY//////////////////////////////////////////
+
 	printf("\nshared-memory\n:");
 	for(nelem_per_thread = 1; nelem_per_thread <= 32; nelem_per_thread++ ){
-		double time = avgtime[nelem_per_thread]/nruns;
-		numThreadsReq = (numCRows+nelem_per_thread-1)/nelem_per_thread;
-	    threadsPerBlock = (256+nelem_per_thread-1)/nelem_per_thread;
-	    blocksPerGrid =(numThreadsReq + threadsPerBlock - 1) / threadsPerBlock;
-	    
-	    // Shared memory for parameter vetor and bias values
-	    totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
-
-	    // printf("CUDA kernel launch with %d blocks of %d threads, and %d of shared Memory\n", blocksPerGrid, threadsPerBlock, totSharedMem);
-	    printf("%lf, ", time);
+        double time = avgtime_shared[nelem_per_thread]/nruns;
+		printf("%lf, ", time);
 	}
+
 	printf("\nGlobal-memory\n:");
 	for(nelem_per_thread = 1; nelem_per_thread <= 32; nelem_per_thread++ ){
-		double time = avgtime_shared[nelem_per_thread]/nruns;
-		numThreadsReq = (numCRows+nelem_per_thread-1)/nelem_per_thread;
-	    threadsPerBlock = (256+nelem_per_thread-1)/nelem_per_thread;
-	    blocksPerGrid =(numThreadsReq + threadsPerBlock - 1) / threadsPerBlock;
-	    
-	    // Shared memory for parameter vetor and bias values
-	    totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
-
-	    // printf("CUDA kernel launch with %d blocks of %d threads, and %d of shared Memory\n", blocksPerGrid, threadsPerBlock, totSharedMem);
-	    printf("%lf, ", time);
+        double time = avgtime[nelem_per_thread]/nruns;
+		printf("%lf, ", time);
 	}
     printf("\n");
-    //cudaDeviceSynchronize();//To synchronize the device
 
-    // Copy the results in GPU memory back to the CPU
-    funcCheck(cudaMemcpy(hostC, deviceC, sizeof(float)*numCRows*numCColumns, cudaMemcpyDeviceToHost));
+    
 
-    matMultiplyAddOnHost(hostA, hostB, hostComputedC, hostBias, numARows, numAColumns, numBRows, numBColumns, numCRows, numCColumns);
-
-    for (int i=0; i < numCColumns*numCRows; i++)//Compare both the result matrices 1. MatrixMultiplyonHost 2. MatrixMultiplyonDevice
-    {
-        if (hostComputedC[i]  != hostC[i] )
-        {
-            printf("Mismatch at Row = %d Col = %d hostComputed[] = %f --device[] %f\n", i / numCColumns, i % numCColumns, hostComputedC[i], hostC[i]);
-            break;
-        }
-    }
-
-    // printf("\n Number of Blocks Created:%d \n",((numCColumns/Tile_size) + 1)*((numCColumns/Tile_size) + 1));
-    // printf("\n Number of Threads Per Block: %d \n",(Tile_size*Tile_size));
 
     // Free the GPU memory
     funcCheck(cudaFree(deviceA));
