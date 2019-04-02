@@ -1,1 +1,4 @@
-YO
+Download the pre trained model parameters fromLink: <https://www.cs.toronto.edu/~guerzhoy/tf_alexnet/bvlc_alexnet.npy>
+the commands to run the code on the 112 server :
+$ make
+$ ./cnn_inference
