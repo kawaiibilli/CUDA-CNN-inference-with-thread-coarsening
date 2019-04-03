@@ -21,9 +21,9 @@ __global__ void gen_matvec(float *A, float *x, float *y, float *B, const int m, 
 	}
 
 	// Filling the shared memory in a way to use memory coalescing
-	for(int i = tId; i < m; i += blockDim.x ) {
+	/*for(int i = tId; i < m; i += blockDim.x ) {
 		Bs[i] = B[i];
-	}
+	}*/
 
 	__syncthreads();
 
@@ -33,7 +33,8 @@ __global__ void gen_matvec(float *A, float *x, float *y, float *B, const int m, 
 		for(int i=0; i<n; i++)
 			//c = c + Xs[i] * As[ n * (xIndex*nelem_per_thread+j) +i - prevIndx];
 			c = c + Xs[i] * A[ n * (xIndex*nelem_per_thread+j) +i];
-		y[xIndex*nelem_per_thread+j] = c + Bs[xIndex*nelem_per_thread+j];
+		//y[xIndex*nelem_per_thread+j] = c + Bs[xIndex*nelem_per_thread+j];
+		y[xIndex*nelem_per_thread+j] = c + B[xIndex*nelem_per_thread+j];
 	}
 }
 
@@ -76,9 +77,9 @@ __global__ void gen_matvec_nocoarse(float *A, float *x, float *y, float *B, cons
 	}
 
 	// Filling the shared memory in a way to use memory coalescing
-	for(int i = tId; i < m; i += blockDim.x ) {
+	/*for(int i = tId; i < m; i += blockDim.x ) {
 		Bs[i] = B[i];
-	}
+	}*/
 
 	__syncthreads();
 
@@ -86,7 +87,8 @@ __global__ void gen_matvec_nocoarse(float *A, float *x, float *y, float *B, cons
 		float c = 0.0f;
 		for(int i=0; i<n; i++)
 			c = c + Xs[i] * A[ n * (xIndex) +i];
-		y[xIndex] = c + Bs[xIndex];
+		//y[xIndex] = c + Bs[xIndex];
+		y[xIndex] = c + B[xIndex];
 	}
 }
 
