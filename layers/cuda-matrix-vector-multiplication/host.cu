@@ -181,7 +181,7 @@ int main(int argc, char ** argv) {
 
 
     ////WITHOUT SHARED MEMORY
-    gen_matvec_nocoarse_noshared<<<dimGrid, dimBlock, totSharedMem>>>(deviceA, deviceB, deviceC, deviceBias, numCRows, numAColumns);
+    gen_matvec_nocoarse_noshared<<<dimGrid, dimBlock>>>(deviceA, deviceB, deviceC, deviceBias, numCRows, numAColumns);
 
     //VERIFYING THE RESULT
     // Copy the results in GPU memory back to the CPU
