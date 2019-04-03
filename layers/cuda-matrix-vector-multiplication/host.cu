@@ -156,7 +156,7 @@ int main(int argc, char ** argv) {
     dim3 dimBlock(threadsPerBlock, 1, 1);
     
     // Shared memory for parameter vetor and bias values
-    int totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float);
+    int totSharedMem = (numAColumns)* sizeof(float);
 
     //-----------------------------------------------------------------------------------------------------------------------------
     //////////////////////////////////////////TESTING NON THREAD COARSENING CODES///////////////////////////////////////////////////////////////
@@ -220,7 +220,7 @@ int main(int argc, char ** argv) {
 		    dim3 dimBlock_tmp(threadsPerBlock, 1, 1);
 		    
 		    // Shared memory for parameter vetor and bias values
-		    totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
+		    totSharedMem = (numAColumns)* sizeof(float); // Shared memory per block
 
 		    printf("CUDA kernel launch with %d blocks of %d threads, and %d of shared Memory\n", blocksPerGrid, threadsPerBlock, totSharedMem);
 
