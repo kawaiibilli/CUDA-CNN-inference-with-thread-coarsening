@@ -156,7 +156,7 @@ int main(int argc, char ** argv) {
     dim3 dimBlock(threadsPerBlock, 1, 1);
     
     // Shared memory for parameter vetor and bias values
-    int totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float);
+    int totSharedMem = (numAColumns)* sizeof(float);
 
     //-----------------------------------------------------------------------------------------------------------------------------
     //////////////////////////////////////////TESTING NON THREAD COARSENING CODES///////////////////////////////////////////////////////////////
@@ -181,7 +181,7 @@ int main(int argc, char ** argv) {
 
 
     ////WITHOUT SHARED MEMORY
-    gen_matvec_nocoarse_noshared<<<dimGrid, dimBlock, totSharedMem>>>(deviceA, deviceB, deviceC, deviceBias, numCRows, numAColumns);
+    gen_matvec_nocoarse_noshared<<<dimGrid, dimBlock>>>(deviceA, deviceB, deviceC, deviceBias, numCRows, numAColumns);
 
     //VERIFYING THE RESULT
     // Copy the results in GPU memory back to the CPU
@@ -220,7 +220,7 @@ int main(int argc, char ** argv) {
 		    dim3 dimBlock_tmp(threadsPerBlock, 1, 1);
 		    
 		    // Shared memory for parameter vetor and bias values
-		    totSharedMem = (numAColumns + numCRows*numCColumns)* sizeof(float); // Shared memory per block
+		    totSharedMem = (numAColumns)* sizeof(float); // Shared memory per block
 
 		    printf("CUDA kernel launch with %d blocks of %d threads, and %d of shared Memory\n", blocksPerGrid, threadsPerBlock, totSharedMem);
 
