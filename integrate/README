@@ -1,3 +1,4 @@
+The final code for the feed forward pass for CNN inference. 
 Download the pre trained model parameters CSV file : https://drive.google.com/file/d/10ZoX2jYzy9XqdjoIMm_jk5uSP-1dJwTl/view?usp=sharing
 the commands to run the code on the 10.5.18.112 server :
 $ make
